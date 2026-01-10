@@ -52,7 +52,7 @@ python main.py
 ├── data/                  # 数据目录
 │   ├── data.db           # SQLite数据库
 │   └── scripts/          # 脚本存储
-├── resource/             # 资源文件
+├── resources/             # 资源文件
 ├── test/                 # 测试目录
 ├── main.py               # 程序入口
 └── requirements.txt      # 依赖清单

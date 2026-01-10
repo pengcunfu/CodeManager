@@ -9,10 +9,10 @@ import os
 __import__('__init__')
 
 
-# os.environ["QT_PLUGIN_PATH"] = os.path.realpath("./resources/plugins")
+# os.environ["QT_PLUGIN_PATH"] = os.path.realpath("./resourcess/plugins")
 # 确保 Qt WebEngine 被正确初始化
 # os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--no-sandbox"
-# os.environ["QTWEBENGINEPROCESS_PATH"] = os.path.realpath("./resources/plugins/QtWebEngineProcess.exe")
+# os.environ["QTWEBENGINEPROCESS_PATH"] = os.path.realpath("./resourcess/plugins/QtWebEngineProcess.exe")
 
 class Browser(QMainWindow):
     def __init__(self):

@@ -69,13 +69,13 @@ class MainWindow(QMainWindow):
 
         # 添加代码片段管理选项卡
         self.snippet_manager = SnippetManagerWidget(self.session)
-        code_icon = QIcon("resource/icons/languages/code.svg")
+        code_icon = QIcon("resources/icons/languages/code.svg")
         self.tab_widget.addTab(self.snippet_manager, code_icon, "")
         self.tab_widget.setTabToolTip(0, "代码片段管理")
 
         # 添加远程操作选项卡
         self.remote_runner = RemoteRunnerWidget()
-        remote_icon = QIcon("resource/icons/export.svg")
+        remote_icon = QIcon("resources/icons/export.svg")
         self.tab_widget.addTab(self.remote_runner, remote_icon, "")
         self.tab_widget.setTabToolTip(1, "远程操作")
         

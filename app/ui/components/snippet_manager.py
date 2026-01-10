@@ -64,7 +64,7 @@ class SnippetListItem(QListWidgetItem):
             'powershell': 'code.svg',
             'ps1': 'code.svg',
         }
-        icon_path = f"resource/icons/languages/{icon_map.get(language, 'code.svg')}"
+        icon_path = f"resources/icons/languages/{icon_map.get(language, 'code.svg')}"
         return QIcon(icon_path)
 
 class SnippetManagerWidget(QWidget):
