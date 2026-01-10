@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Monaco Editor Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+        #container {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+    
+    <script>
+        require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+        
+        require(['vs/editor/editor.main'], function() {
+            // 创建编辑器
+            const editor = monaco.editor.create(document.getElementById('container'), {
+                value: '# 欢迎使用Monaco Editor\nprint("Hello, World!")\n\n# 这是一个功能强大的代码编辑器\ndef hello():\n    return "Monaco Editor is working!"',
+                language: 'python',
+                theme: 'vs-dark',
+                fontSize: 14,
+                fontFamily: 'Consolas, Monaco, Courier New, monospace',
+                lineNumbers: 'on',
+                roundedSelection: false,
+                scrollBeyondLastLine: false,
+                readOnly: false,
+                automaticLayout: true,
+                minimap: {
+                    enabled: true
+                },
+                folding: true,
+                foldingStrategy: 'indentation',
+                showFoldingControls: 'always',
+                wordWrap: 'off',
+                bracketMatching: 'always',
+                autoIndent: 'full',
+                formatOnPaste: true,
+                formatOnType: true,
+                suggestOnTriggerCharacters: true,
+                acceptSuggestionOnEnter: 'on',
+                tabCompletion: 'on',
+                wordBasedSuggestions: true,
+                parameterHints: {
+                    enabled: true
+                },
+                quickSuggestions: {
+                    other: true,
+                    comments: true,
+                    strings: true
+                }
+            });
+            
+            // 窗口大小变化时调整编辑器
+            window.addEventListener('resize', function() {
+                editor.layout();
+            });
+        });
+    </script>
+</body>
+</html>

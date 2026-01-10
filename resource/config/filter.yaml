@@ -1,0 +1,17 @@
+last_used:
+  category: null
+  keyword: ''
+  language: null
+  sort_field: 创建时间
+  sort_order: desc
+  tag: null
+quick_filters:
+- name: 最近创建
+  sort_field: 创建时间
+  sort_order: desc
+- name: 最常用
+  sort_field: 使用频率
+  sort_order: desc
+- name: 按标题
+  sort_field: 标题
+  sort_order: asc

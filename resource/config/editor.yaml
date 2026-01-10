@@ -1,0 +1,10 @@
+auto_indent: true
+auto_save: true
+auto_save_interval: 30
+bracket_matching: true
+font_family: Consolas
+font_size: 12
+line_numbers: true
+syntax_highlighting: true
+tab_size: 4
+word_wrap: true
