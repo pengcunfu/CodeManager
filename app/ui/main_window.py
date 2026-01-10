@@ -6,14 +6,11 @@ from sqlalchemy.orm import sessionmaker
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import (QSyntaxHighlighter, QTextCharFormat, QColor, QFont,
                            QAction, QIcon)
-import qdarkstyle
 import re
 import keyword
 from .remote_runner import RemoteRunnerWidget
 from .preferences_dialog import PreferencesDialog
 from .editor_config_dialog import EditorConfigDialog
-from .theme_manager import ThemeManager
-from .theme_dialog import ThemeDialog
 from .components import SnippetManagerWidget
 from .components.code_snippet import Base
 from .components.filter_dialog import FilterDialog
@@ -24,15 +21,9 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.session = self.init_database()
-        
-        # 初始化主题管理器
-        self.theme_manager = ThemeManager()
-        
+
         self.init_ui()
         self.setup_shortcuts()
-        
-        # 应用保存的主题
-        self.theme_manager.apply_theme(self.theme_manager.get_current_theme())
 
     def init_database(self):
         """初始化数据库"""
@@ -75,40 +66,6 @@ class MainWindow(QMainWindow):
         # 恢复分割器状态
         splitter_sizes = config_manager.get_splitter_sizes()
         self.main_splitter.setSizes(splitter_sizes)
-        self.tab_widget.setStyleSheet("""
-            QTabWidget::pane {
-                border: none;
-                background-color: #282A36;
-                margin-left: 0px;
-            }
-            QTabWidget::tab-bar {
-                alignment: left;
-            }
-            QTabBar {
-                background-color: #21222C;
-                border: none;
-                min-width: 45px;
-                max-width: 45px;
-            }
-            QTabBar::tab {
-                background-color: #21222C;
-                color: #F8F8F2;
-                border: none;
-                padding: 10px 3px;
-                margin-bottom: 1px;
-                border-radius: 0px;
-                min-width: 40px;
-                max-width: 40px;
-                text-align: center;
-                font-size: 12px;
-            }
-            QTabBar::tab:selected {
-                background-color: #6272A4;
-            }
-            QTabBar::tab:hover:!selected {
-                background-color: #44475A;
-            }
-        """)
 
         # 添加代码片段管理选项卡
         self.snippet_manager = SnippetManagerWidget(self.session)
@@ -129,11 +86,6 @@ class MainWindow(QMainWindow):
 
         # 创建状态栏
         status_bar = self.statusBar()
-        status_bar.setStyleSheet("""
-            QStatusBar {
-                border-top: 1px solid rgba(255, 255, 255, 0.1);
-            }
-        """)
         status_bar.showMessage("就绪")
 
     def center_window(self):
@@ -289,11 +241,6 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.warning(self, "警告", f"无法启动工具: {tool_command}\n错误: {str(e)}")
 
-    def show_theme_manager(self):
-        """显示主题管理器对话框"""
-        dialog = ThemeDialog(self.theme_manager, self)
-        dialog.exec_()
-
     def show_about(self):
         """显示关于对话框"""
         QMessageBox.about(self, "关于", """
@@ -378,13 +325,6 @@ class MainWindow(QMainWindow):
 
         # 添加系统工具选项
         self.create_system_tools_menu(system_tools_menu)
-
-        tools_menu.addSeparator()
-
-        # 主题切换
-        theme_action = QAction("主题切换(&T)", self)
-        theme_action.triggered.connect(self.show_theme_manager)
-        tools_menu.addAction(theme_action)
 
         tools_menu.addSeparator()
 

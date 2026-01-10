@@ -320,7 +320,6 @@ class ColorSettingsTab(QWidget):
     def set_button_color(self, key, color_hex):
         """设置按钮颜色"""
         button = self.color_buttons[key]
-        button.setStyleSheet(f"background-color: {color_hex}; border: 1px solid #666;")
         button.setText(color_hex)
 
     def load_config(self, config):

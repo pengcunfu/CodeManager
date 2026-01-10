@@ -67,16 +67,6 @@ class CodeEditor(QPlainTextEdit):
         # 设置自动缩进
         self.setAutoIndentation(True)
 
-        # 设置背景色和边框
-        self.setStyleSheet("""
-            QPlainTextEdit {
-                background-color: #2b2b2b;
-                color: #f8f8f2;
-                border: 1px solid #3b3b3b;
-                border-radius: 4px;
-            }
-        """)
-
         # 连接文本变化信号
         self.textChanged.connect(self.on_text_changed)
 

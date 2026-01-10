@@ -18,7 +18,6 @@ class ConfigManager:
         
         # 配置文件路径
         self.config_files = {
-            'theme': self.config_dir / 'theme.yaml',
             'editor': self.config_dir / 'editor.yaml',
             'window': self.config_dir / 'window.yaml',
             'filter': self.config_dir / 'filter.yaml',
@@ -27,13 +26,6 @@ class ConfigManager:
         
         # 默认配置
         self.default_configs = {
-            'theme': {
-                'current_theme': 'dark',
-                'available_themes': ['dark', 'light', 'high_contrast', 'blue', 'green'],
-                'auto_switch': False,
-                'dark_time': '18:00',
-                'light_time': '06:00'
-            },
             'editor': {
                 'font_family': 'Consolas',
                 'font_size': 12,
@@ -131,26 +123,7 @@ class ConfigManager:
             else:
                 result[key] = value
         return result
-    
-    # 主题配置
-    def get_theme_config(self) -> Dict[str, Any]:
-        """获取主题配置"""
-        return self._load_config('theme')
-    
-    def save_theme_config(self, config: Dict[str, Any]):
-        """保存主题配置"""
-        self._save_config('theme', config)
-    
-    def get_current_theme(self) -> str:
-        """获取当前主题"""
-        return self.get_theme_config().get('current_theme', 'dark')
-    
-    def set_current_theme(self, theme: str):
-        """设置当前主题"""
-        config = self.get_theme_config()
-        config['current_theme'] = theme
-        self.save_theme_config(config)
-    
+
     # 编辑器配置
     def get_editor_config(self) -> Dict[str, Any]:
         """获取编辑器配置"""

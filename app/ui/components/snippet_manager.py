@@ -83,51 +83,6 @@ class SnippetManagerWidget(QWidget):
 
         # 顶部工具栏
         toolbar = QFrame()
-        toolbar.setStyleSheet("""
-            QFrame {
-                background-color: #3c3c3c;
-                border: 1px solid #555;
-                border-radius: 3px;
-            }
-            QPushButton {
-                background-color: #0078d4;
-                color: white;
-                border: none;
-                padding: 6px 12px;
-                border-radius: 3px;
-                font-weight: bold;
-                font-size: 12px;
-                min-height: 20px;
-            }
-            QPushButton:hover {
-                background-color: #106ebe;
-            }
-            QLineEdit, QComboBox {
-                padding: 6px;
-                border: 1px solid #555;
-                border-radius: 3px;
-                background: #2b2b2b;
-                color: #ffffff;
-                font-size: 12px;
-                min-height: 20px;
-            }
-            QLineEdit:focus, QComboBox:focus {
-                border: 2px solid #0078d4;
-            }
-            QComboBox::drop-down {
-                border: none;
-                width: 18px;
-                background-color: #404040;
-            }
-            QComboBox::down-arrow {
-                width: 10px;
-                height: 10px;
-            }
-            QLabel {
-                color: #ffffff;
-                font-size: 12px;
-            }
-        """)
         toolbar_layout = QHBoxLayout(toolbar)
         toolbar_layout.setContentsMargins(6, 3, 6, 3)  # 减少边距
         toolbar_layout.setSpacing(6)  # 减少间距
@@ -176,45 +131,10 @@ class SnippetManagerWidget(QWidget):
 
         # 主界面分割器
         splitter = QSplitter(Qt.Horizontal)
-        splitter.setStyleSheet("""
-            QSplitter::handle {
-                background-color: #555;
-                width: 1px;
-            }
-            QSplitter::handle:hover {
-                background-color: #0078d4;
-            }
-        """)
         splitter.setHandleWidth(1)  # 设置分割器手柄宽度为1像素
 
         # 左侧列表
         list_container = QFrame()
-        list_container.setStyleSheet("""
-            QFrame {
-                background-color: #2b2b2b;
-                border: 1px solid #555;
-                border-radius: 4px;
-            }
-            QListWidget {
-                border: none;
-                background-color: transparent;
-                color: #ffffff;
-            }
-            QListWidget::item {
-                padding: 4px 6px;
-                border-bottom: 1px solid #444;
-                color: #ffffff;
-                font-size: 12px;
-                min-height: 18px;
-            }
-            QListWidget::item:selected {
-                background-color: #0078d4;
-                color: #ffffff;
-            }
-            QListWidget::item:hover {
-                background-color: #404040;
-            }
-        """)
         list_layout = QVBoxLayout(list_container)
         list_layout.setContentsMargins(2, 2, 2, 2)  # 减少边距
         list_layout.setSpacing(2)  # 减少间距
@@ -231,31 +151,6 @@ class SnippetManagerWidget(QWidget):
 
         # 右侧编辑区
         edit_container = QFrame()
-        edit_container.setStyleSheet("""
-            QFrame {
-                background-color: #2b2b2b;
-                border: 1px solid #555;
-                border-radius: 4px;
-            }
-            QPushButton {
-                background-color: #0078d4;
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 4px;
-                min-width: 80px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #106ebe;
-            }
-            QPushButton#deleteBtn {
-                background-color: #d13438;
-            }
-            QPushButton#deleteBtn:hover {
-                background-color: #b71c1c;
-            }
-        """)
         edit_layout = QVBoxLayout(edit_container)
         edit_layout.setContentsMargins(6, 6, 6, 6)  # 适当的边距
         edit_layout.setSpacing(4)  # 适当的间距
@@ -935,7 +830,6 @@ class ExecutionResultDialog(QDialog):
         
         # 状态信息
         status_label = QLabel(f"退出代码: {returncode}")
-        status_label.setStyleSheet(f"color: {'green' if returncode == 0 else 'red'}; font-weight: bold;")
         layout.addWidget(status_label)
         
         # 输出结果
@@ -945,7 +839,6 @@ class ExecutionResultDialog(QDialog):
             stdout_text.setPlainText(stdout)
             stdout_text.setReadOnly(True)
             stdout_text.setFont(QFont("Consolas", 10))
-            stdout_text.setStyleSheet("background-color: #2b2b2b; color: #ffffff; border: 1px solid #555;")
             layout.addWidget(stdout_text)
         
         # 错误输出
@@ -955,33 +848,9 @@ class ExecutionResultDialog(QDialog):
             stderr_text.setPlainText(stderr)
             stderr_text.setReadOnly(True)
             stderr_text.setFont(QFont("Consolas", 10))
-            stderr_text.setStyleSheet("background-color: #2b2b2b; color: #ff6b6b; border: 1px solid #555;")
             layout.addWidget(stderr_text)
         
         # 关闭按钮
         close_btn = QPushButton("关闭")
         close_btn.clicked.connect(self.accept)
         layout.addWidget(close_btn)
-        
-        # 设置对话框样式
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #2b2b2b;
-                color: #ffffff;
-            }
-            QLabel {
-                color: #ffffff;
-                font-weight: bold;
-            }
-            QPushButton {
-                background-color: #0078d4;
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #106ebe;
-            }
-        """)

@@ -31,17 +31,6 @@ class EnhancedCodeEditor(QPlainTextEdit):
         font.setFixedPitch(True)
         self.setFont(font)
         
-        # 设置样式
-        self.setStyleSheet("""
-            QPlainTextEdit {
-                background-color: #1e1e1e;
-                color: #d4d4d4;
-                border: 1px solid #3e3e42;
-                selection-background-color: #264f78;
-                selection-color: #ffffff;
-            }
-        """)
-        
         # 设置制表符宽度
         self.setTabStopDistance(40)  # 4个字符的宽度
         

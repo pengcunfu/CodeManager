@@ -42,73 +42,17 @@ class ScriptRunnerWidget(QWidget):
 
         # 创建顶部工具栏
         toolbar = QFrame()
-        toolbar.setStyleSheet("QFrame { background-color: #282A36; border-radius: 5px; }")
         toolbar_layout = QHBoxLayout(toolbar)
 
         # 环境选择下拉框
         self.env_combo = QComboBox()
         self.env_combo.addItems(["本地环境", "Python环境", "JDK环境"])
-        self.env_combo.setStyleSheet("""
-            QComboBox {
-                background-color: #44475A;
-                color: #F8F8F2;
-                border: none;
-                border-radius: 5px;
-                padding: 5px;
-                min-width: 120px;
-            }
-            QComboBox::drop-down {
-                border: none;
-            }
-            QComboBox::down-arrow {
-                image: url(resource/icons/down-arrow.svg);
-                width: 12px;
-                height: 12px;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #282A36;
-                color: #F8F8F2;
-                selection-background-color: #44475A;
-            }
-        """)
 
         # 运行按钮
         self.run_btn = QPushButton("运行")
-        self.run_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #50FA7B;
-                color: #282A36;
-                border: none;
-                border-radius: 5px;
-                padding: 5px 15px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #5AF78E;
-            }
-            QPushButton:pressed {
-                background-color: #42CF6A;
-            }
-        """)
 
         # 停止按钮
         self.stop_btn = QPushButton("停止")
-        self.stop_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #FF5555;
-                color: #F8F8F2;
-                border: none;
-                border-radius: 5px;
-                padding: 5px 15px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #FF6E6E;
-            }
-            QPushButton:pressed {
-                background-color: #E64747;
-            }
-        """)
 
         toolbar_layout.addWidget(self.env_combo)
         toolbar_layout.addWidget(self.run_btn)
@@ -123,74 +67,26 @@ class ScriptRunnerWidget(QWidget):
         # 左侧脚本树
         self.script_tree = QTreeWidget()
         self.script_tree.setHeaderLabel("脚本列表")
-        self.script_tree.setStyleSheet("""
-            QTreeWidget {
-                background-color: #282A36;
-                color: #F8F8F2;
-                border: none;
-                border-radius: 5px;
-                padding: 5px;
-            }
-            QTreeWidget::item {
-                padding: 5px;
-                margin: 2px;
-            }
-            QTreeWidget::item:selected {
-                background-color: #6272A4;
-            }
-            QTreeWidget::item:hover {
-                background-color: #44475A;
-            }
-            QTreeWidget::branch {
-                background-color: #282A36;
-            }
-        """)
 
         # 右侧面板
         right_panel = QFrame()
-        right_panel.setStyleSheet("QFrame { background-color: #282A36; border-radius: 5px; }")
         right_layout = QVBoxLayout(right_panel)
 
         # 脚本内容查看器
         self.script_viewer = QTextEdit()
         self.script_viewer.setReadOnly(True)
-        self.script_viewer.setStyleSheet("""
-            QTextEdit {
-                background-color: #282A36;
-                color: #F8F8F2;
-                border: none;
-                border-radius: 5px;
-                padding: 10px;
-                font-family: 'Consolas', monospace;
-                font-size: 13px;
-                selection-background-color: #44475A;
-            }
-        """)
         font = QFont("Consolas", 13)
         font.setFixedPitch(True)
         self.script_viewer.setFont(font)
 
         # 输出区域
         output_frame = QFrame()
-        output_frame.setStyleSheet("QFrame { background-color: #44475A; border-radius: 5px; }")
         output_layout = QVBoxLayout(output_frame)
 
         output_label = QLabel("执行输出")
-        output_label.setStyleSheet("QLabel { color: #F8F8F2; }")
 
         self.output_text = QTextEdit()
         self.output_text.setReadOnly(True)
-        self.output_text.setStyleSheet("""
-            QTextEdit {
-                background-color: #282A36;
-                color: #F8F8F2;
-                border: none;
-                border-radius: 5px;
-                padding: 10px;
-                font-family: 'Consolas', monospace;
-                font-size: 13px;
-            }
-        """)
         self.output_text.setFont(font)
         self.output_highlighter = OutputHighlighter(self.output_text)
 

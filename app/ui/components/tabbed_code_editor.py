@@ -22,18 +22,6 @@ class MetadataEditor(QTextEdit):
         font.setFixedPitch(True)
         self.setFont(font)
         
-        # 设置样式
-        self.setStyleSheet("""
-            QTextEdit {
-                background-color: #1e1e1e;
-                color: #d4d4d4;
-                border: 1px solid #3e3e42;
-                selection-background-color: #264f78;
-                selection-color: #ffffff;
-                padding: 8px;
-            }
-        """)
-        
         # 设置占位符文本
         self.setPlaceholderText("请输入代码片段的元信息...\n\n示例：\ntitle: 我的代码片段\nlanguage: python\ntags: 工具, 示例\ndescription: 这是一个示例代码片段")
         
@@ -101,18 +89,6 @@ class SourceCodeEditor(QPlainTextEdit):
         font = QFont("Consolas", 12)
         font.setFixedPitch(True)
         self.setFont(font)
-        
-        # 设置样式
-        self.setStyleSheet("""
-            QPlainTextEdit {
-                background-color: #1e1e1e;
-                color: #d4d4d4;
-                border: 1px solid #3e3e42;
-                selection-background-color: #264f78;
-                selection-color: #ffffff;
-                padding: 8px;
-            }
-        """)
         
         # 设置制表符宽度
         self.setTabStopDistance(40)  # 4个字符的宽度

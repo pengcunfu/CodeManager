@@ -38,22 +38,6 @@ class PythonHighlighter(QSyntaxHighlighter):
 class TagButton(QPushButton):
     def __init__(self, text, parent=None):
         super().__init__(text, parent)
-        self.setStyleSheet("""
-            QPushButton {
-                background-color: #44475A;
-                color: #F8F8F2;
-                border: none;
-                border-radius: 10px;
-                padding: 5px 10px;
-                margin: 2px;
-            }
-            QPushButton:hover {
-                background-color: #6272A4;
-            }
-            QPushButton:pressed {
-                background-color: #BD93F9;
-            }
-        """)
 
 class TagCloud(QWidget):
     tag_clicked = Signal(str)
@@ -88,49 +72,15 @@ class CodeManagerWidget(QWidget):
 
         # 创建顶部工具栏
         toolbar = QFrame()
-        toolbar.setStyleSheet("QFrame { background-color: #282A36; border-radius: 5px; }")
         toolbar_layout = QHBoxLayout(toolbar)
 
         # 搜索框
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("搜索代码片段...")
-        self.search_box.setStyleSheet("""
-            QLineEdit {
-                background-color: #44475A;
-                color: #F8F8F2;
-                border: none;
-                border-radius: 5px;
-                padding: 5px;
-                font-size: 13px;
-            }
-        """)
 
         # 语言选择下拉框
         self.language_combo = QComboBox()
         self.language_combo.addItems(["全部", "Python", "Java", "JavaScript", "Shell", "Batch"])
-        self.language_combo.setStyleSheet("""
-            QComboBox {
-                background-color: #44475A;
-                color: #F8F8F2;
-                border: none;
-                border-radius: 5px;
-                padding: 5px;
-                min-width: 100px;
-            }
-            QComboBox::drop-down {
-                border: none;
-            }
-            QComboBox::down-arrow {
-                image: url(resource/icons/down-arrow.svg);
-                width: 12px;
-                height: 12px;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #282A36;
-                color: #F8F8F2;
-                selection-background-color: #44475A;
-            }
-        """)
 
         toolbar_layout.addWidget(self.search_box)
         toolbar_layout.addWidget(self.language_combo)
@@ -145,87 +95,25 @@ class CodeManagerWidget(QWidget):
 
         # 左侧代码片段列表
         self.document_list = QListWidget()
-        self.document_list.setStyleSheet("""
-            QListWidget {
-                background-color: #282A36;
-                border: none;
-                border-radius: 5px;
-                padding: 5px;
-            }
-            QListWidget::item {
-                background-color: #44475A;
-                color: #F8F8F2;
-                border-radius: 5px;
-                padding: 10px;
-                margin: 2px;
-            }
-            QListWidget::item:selected {
-                background-color: #6272A4;
-            }
-            QListWidget::item:hover {
-                background-color: #50FA7B;
-                color: #282A36;
-            }
-        """)
 
         # 右侧代码编辑区
         right_panel = QFrame()
-        right_panel.setStyleSheet("QFrame { background-color: #282A36; border-radius: 5px; }")
         right_layout = QVBoxLayout(right_panel)
 
         # 代码编辑器
         self.code_edit = QTextEdit()
-        self.code_edit.setStyleSheet("""
-            QTextEdit {
-                background-color: #282A36;
-                color: #F8F8F2;
-                border: none;
-                border-radius: 5px;
-                padding: 10px;
-                font-family: 'Consolas', monospace;
-                font-size: 13px;
-                selection-background-color: #44475A;
-            }
-        """)
         font = QFont("Consolas", 13)
         font.setFixedPitch(True)
         self.code_edit.setFont(font)
 
         # 标签输入和保存按钮区域
         bottom_frame = QFrame()
-        bottom_frame.setStyleSheet("QFrame { background-color: #44475A; border-radius: 5px; }")
         bottom_layout = QHBoxLayout(bottom_frame)
 
         self.tag_input = QLineEdit()
         self.tag_input.setPlaceholderText("输入标签，用逗号分隔")
-        self.tag_input.setStyleSheet("""
-            QLineEdit {
-                background-color: #282A36;
-                color: #F8F8F2;
-                border: none;
-                border-radius: 5px;
-                padding: 5px;
-                font-size: 13px;
-            }
-        """)
 
         self.save_btn = QPushButton("保存")
-        self.save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #50FA7B;
-                color: #282A36;
-                border: none;
-                border-radius: 5px;
-                padding: 5px 15px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #5AF78E;
-            }
-            QPushButton:pressed {
-                background-color: #42CF6A;
-            }
-        """)
 
         bottom_layout.addWidget(self.tag_input)
         bottom_layout.addWidget(self.save_btn)
