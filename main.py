@@ -6,6 +6,9 @@ import sys
 # 初始化应用程序
 app = QApplication(sys.argv)
 
+# 设置 Windows Vista 风格
+app.setStyle("WindowsVista")
+
 # 确保配置目录存在
 config_manager.ensure_config_directory()
 
