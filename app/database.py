@@ -106,8 +106,11 @@ def sync_scripts_from_filesystem(session, root: Path | None = None) -> dict[str,
         except ValueError:
             category = ""
 
-        rel = file_path.relative_to(PROJECT_ROOT)
-        source_path = str(rel).replace("\\", "/")
+        try:
+            rel = file_path.relative_to(PROJECT_ROOT)
+            source_path = str(rel).replace("\\", "/")
+        except ValueError:
+            source_path = str(file_path.resolve()).replace("\\", "/")
         title = file_path.stem
         row = by_path.get(source_path)
 
