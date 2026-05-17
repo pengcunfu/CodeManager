@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 from typing import Dict, List, Optional
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -83,7 +83,7 @@ def _build_folder_tree(
 class ScriptTreeWidget(QTreeWidget):
   """支持将脚本拖拽到分类文件夹。"""
 
-  script_moved = Signal(int, str)
+  scripts_dropped = Signal(list)
 
   def __init__(self, parent=None):
     super().__init__(parent)
@@ -140,8 +140,8 @@ class ScriptTreeWidget(QTreeWidget):
     if category is None:
       event.ignore()
       return
-    for item in scripts:
-      self.script_moved.emit(item.script.id, category)
+    moves = [(item.script.id, category) for item in scripts]
+    self.scripts_dropped.emit(moves)
     event.acceptProposedAction()
 
 
@@ -223,7 +223,7 @@ class ScriptManagerWidget(QWidget):
     self.script_tree.setAnimated(True)
     self.script_tree.setIndentation(16)
     self.script_tree.itemClicked.connect(self.on_tree_item_clicked)
-    self.script_tree.script_moved.connect(self.on_script_moved)
+    self.script_tree.scripts_dropped.connect(self.on_scripts_dropped)
     self.script_tree.setContextMenuPolicy(Qt.CustomContextMenu)
     self.script_tree.customContextMenuRequested.connect(self.show_context_menu)
     list_layout.addWidget(self.script_tree)
@@ -358,29 +358,38 @@ class ScriptManagerWidget(QWidget):
       return
     self._rebuild_script_tree(self._filtered_scripts())
 
-  def on_script_moved(self, script_id: int, category: str):
-    if not self.script_manager:
+  def on_scripts_dropped(self, moves: list):
+    """拖放结束后更新分类并自动刷新树。"""
+    if not self.script_manager or not moves:
       return
-    new_category = _normalize_category(category) or None
-    script = self.script_manager.get_script(script_id)
-    if not script:
-      return
-    old_category = _normalize_category(script.category)
-    if old_category == (new_category or ""):
-      return
+
+    moved_ids: set[int] = set()
     try:
-      self.script_manager.move_script_to_category(script_id, new_category)
+      for script_id, category in moves:
+        new_category = _normalize_category(category) or None
+        script = self.script_manager.get_script(script_id)
+        if not script:
+          continue
+        old_category = _normalize_category(script.category)
+        if old_category == (new_category or ""):
+          continue
+        self.script_manager.move_script_to_category(script_id, new_category)
+        moved_ids.add(script_id)
     except Exception as e:
       QMessageBox.critical(self, "错误", f"移动失败：{e}")
       return
-    if self.current_script and self.current_script.id == script_id:
-      self.current_script.category = new_category
-      meta = self.code_editor.get_metadata()
-      meta["category"] = new_category or ""
-      self.code_editor.set_metadata(meta)
-    if new_category:
-      self._pending_expand_path = new_category
-    self.load_scripts()
+
+    if self.current_script and self.current_script.id in moved_ids:
+      refreshed = self.script_manager.get_script(self.current_script.id)
+      if refreshed:
+        self.current_script = refreshed
+        meta = self.code_editor.get_metadata()
+        meta["category"] = self.current_script.category or ""
+        self.code_editor.set_metadata(meta)
+
+    _, target_category = moves[-1]
+    self._pending_expand_path = _normalize_category(target_category) or "__uncategorized__"
+    QTimer.singleShot(0, self.load_scripts)
 
   def on_tree_item_clicked(self, item: QTreeWidgetItem, _column: int):
     if isinstance(item, ScriptTreeItem):
