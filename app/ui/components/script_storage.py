@@ -131,6 +131,14 @@ class ScriptManager:
         self.session.commit()
         return True
 
+    def move_script_to_category(self, script_id: int, category: Optional[str]) -> bool:
+        script = self.get_script(script_id)
+        if not script:
+            return False
+        script.category = _normalize_category_path(category) or None
+        self.session.commit()
+        return True
+
     def delete_category(self, path: str) -> bool:
         path = _normalize_category_path(path)
         row = self.session.query(ScriptCategory).filter(ScriptCategory.path == path).first()

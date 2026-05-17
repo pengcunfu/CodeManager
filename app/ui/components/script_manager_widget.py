@@ -6,9 +6,10 @@ import subprocess
 import tempfile
 from typing import Dict, List, Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QComboBox,
     QDialog,
     QFileDialog,
@@ -79,11 +80,78 @@ def _build_folder_tree(
   return root, uncategorized
 
 
+class ScriptTreeWidget(QTreeWidget):
+  """支持将脚本拖拽到分类文件夹。"""
+
+  script_moved = Signal(int, str)
+
+  def __init__(self, parent=None):
+    super().__init__(parent)
+    self.setDragEnabled(True)
+    self.setAcceptDrops(True)
+    self.setDropIndicatorShown(True)
+    self.setDefaultDropAction(Qt.MoveAction)
+    self.setDragDropMode(QAbstractItemView.DragDrop)
+
+  @staticmethod
+  def _drop_category(target: Optional[QTreeWidgetItem]) -> Optional[str]:
+    if target is None:
+      return None
+    if isinstance(target, ScriptFolderItem):
+      if target.folder_path == "__uncategorized__":
+        return ""
+      return target.folder_path
+    if isinstance(target, ScriptTreeItem):
+      return ScriptTreeWidget._drop_category(target.parent())
+    return None
+
+  def startDrag(self, supportedActions):
+    item = self.currentItem()
+    if not isinstance(item, ScriptTreeItem):
+      return
+    super().startDrag(supportedActions)
+
+  def dragEnterEvent(self, event):
+    if event.source() == self:
+      event.acceptProposedAction()
+    else:
+      event.ignore()
+
+  def dragMoveEvent(self, event):
+    if event.source() != self:
+      event.ignore()
+      return
+    target = self.itemAt(event.position().toPoint())
+    if self._drop_category(target) is not None:
+      event.acceptProposedAction()
+    else:
+      event.ignore()
+
+  def dropEvent(self, event):
+    if event.source() != self:
+      event.ignore()
+      return
+    scripts = [i for i in self.selectedItems() if isinstance(i, ScriptTreeItem)]
+    if not scripts:
+      event.ignore()
+      return
+    target = self.itemAt(event.position().toPoint())
+    category = self._drop_category(target)
+    if category is None:
+      event.ignore()
+      return
+    for item in scripts:
+      self.script_moved.emit(item.script.id, category)
+    event.acceptProposedAction()
+
+
 class ScriptTreeItem(QTreeWidgetItem):
   def __init__(self, script):
     super().__init__()
     self.script = script
     self.is_folder = False
+    flags = self.flags() | Qt.ItemIsDragEnabled
+    self.setFlags(flags & ~Qt.ItemIsDropEnabled)
     self.setText(0, script.title)
     self.setToolTip(
       0,
@@ -98,6 +166,8 @@ class ScriptFolderItem(QTreeWidgetItem):
     self.script = None
     self.is_folder = True
     self.folder_path = folder_path
+    flags = self.flags() | Qt.ItemIsDropEnabled
+    self.setFlags(flags & ~Qt.ItemIsDragEnabled)
     self.setText(0, name)
     self.setToolTip(0, folder_path or UNCATEGORIZED_LABEL)
     self.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
@@ -147,12 +217,13 @@ class ScriptManagerWidget(QWidget):
     list_frame = QFrame()
     list_layout = QVBoxLayout(list_frame)
     list_layout.setContentsMargins(2, 2, 2, 2)
-    self.script_tree = QTreeWidget()
+    self.script_tree = ScriptTreeWidget()
     self.script_tree.setHeaderHidden(True)
     self.script_tree.setRootIsDecorated(True)
     self.script_tree.setAnimated(True)
     self.script_tree.setIndentation(16)
     self.script_tree.itemClicked.connect(self.on_tree_item_clicked)
+    self.script_tree.script_moved.connect(self.on_script_moved)
     self.script_tree.setContextMenuPolicy(Qt.CustomContextMenu)
     self.script_tree.customContextMenuRequested.connect(self.show_context_menu)
     list_layout.addWidget(self.script_tree)
@@ -286,6 +357,30 @@ class ScriptManagerWidget(QWidget):
     if not self.script_manager:
       return
     self._rebuild_script_tree(self._filtered_scripts())
+
+  def on_script_moved(self, script_id: int, category: str):
+    if not self.script_manager:
+      return
+    new_category = _normalize_category(category) or None
+    script = self.script_manager.get_script(script_id)
+    if not script:
+      return
+    old_category = _normalize_category(script.category)
+    if old_category == (new_category or ""):
+      return
+    try:
+      self.script_manager.move_script_to_category(script_id, new_category)
+    except Exception as e:
+      QMessageBox.critical(self, "错误", f"移动失败：{e}")
+      return
+    if self.current_script and self.current_script.id == script_id:
+      self.current_script.category = new_category
+      meta = self.code_editor.get_metadata()
+      meta["category"] = new_category or ""
+      self.code_editor.set_metadata(meta)
+    if new_category:
+      self._pending_expand_path = new_category
+    self.load_scripts()
 
   def on_tree_item_clicked(self, item: QTreeWidgetItem, _column: int):
     if isinstance(item, ScriptTreeItem):
