@@ -77,41 +77,12 @@ class EnhancedCodeEditor(QPlainTextEdit):
         self.metadata = metadata.copy() if metadata else {}
         
     def get_metadata(self):
-        """获取元数据"""
-        # 从代码中提取元数据
-        code = self.toPlainText()
-        metadata = self.metadata.copy()
-        
-        # 提取注释中的元数据
-        lines = code.split('\n')
-        for line in lines[:10]:  # 只检查前10行
-            line = line.strip()
-            if line.startswith('/*') and line.endswith('*/'):
-                # 处理 /* key: value */ 格式
-                content = line[2:-2].strip()
-                if ':' in content:
-                    key, value = content.split(':', 1)
-                    metadata[key.strip()] = value.strip()
-            elif line.startswith('#') and ':' in line:
-                # 处理 # key: value 格式
-                content = line[1:].strip()
-                if ':' in content:
-                    key, value = content.split(':', 1)
-                    metadata[key.strip()] = value.strip()
-                    
-        return metadata
-        
-    def new_snippet(self):
-        """创建新代码片段"""
-        template = '''/* title: 新建代码片段 */
-/* language: python */
-/* tags: tag1, tag2 */
-/* description: 在这里添加描述 */
+        """获取元数据（仅内存字段，不从注释解析）。"""
+        return self.metadata.copy()
 
-# 在这里编写代码
-print("Hello, World!")
-'''
-        self.setPlainText(template)
+    def new_snippet(self):
+        """创建新代码片段（纯代码，元数据由表单/SQLite 管理）。"""
+        self.setPlainText('# 在这里编写代码\nprint("Hello, World!")')
     
     def apply_config(self, config):
         """应用编辑器配置"""

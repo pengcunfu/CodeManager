@@ -382,7 +382,7 @@ class SnippetManagerWidget(QWidget):
         metadata = self.code_editor.get_metadata()
         title = metadata.get('title', '').strip()
         if not title:
-            QMessageBox.warning(self, "错误", "请在注释中指定标题")
+            QMessageBox.warning(self, "错误", "请在元信息中填写标题")
             return
 
         language = metadata.get('language', 'text').strip()

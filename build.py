@@ -4,17 +4,42 @@
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+VERSIONS_FILE = ROOT / "versions.py"
 APP_NAME = "CodeManager"
 ENTRY = ROOT / "main.py"
 DIST_DIR = ROOT / "dist"
 BUILD_DIR = ROOT / "build"
 SPEC_FILE = ROOT / f"{APP_NAME}.spec"
+
+
+def bump_build_number() -> int:
+    """递增 versions.py 中的 BUILD_NUMBER，返回新值。"""
+    if not VERSIONS_FILE.is_file():
+        raise FileNotFoundError(f"版本文件不存在: {VERSIONS_FILE}")
+
+    content = VERSIONS_FILE.read_text(encoding="utf-8")
+    match = re.search(r"^BUILD_NUMBER\s*=\s*(\d+)\s*$", content, re.MULTILINE)
+    if not match:
+        raise ValueError(f"无法在 {VERSIONS_FILE} 中解析 BUILD_NUMBER")
+
+    new_number = int(match.group(1)) + 1
+    new_content = re.sub(
+        r"^BUILD_NUMBER\s*=\s*\d+\s*$",
+        f"BUILD_NUMBER = {new_number}",
+        content,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    VERSIONS_FILE.write_text(new_content, encoding="utf-8")
+    print(f"编译版本号已递增: BUILD_NUMBER = {new_number}")
+    return new_number
 
 
 def ensure_pyinstaller() -> None:
@@ -149,9 +174,13 @@ def run_build(
     console: bool = False,
     clean: bool = True,
     skip_install_check: bool = False,
+    bump_version: bool = True,
 ) -> Path:
     if not ENTRY.is_file():
         raise FileNotFoundError(f"入口文件不存在: {ENTRY}")
+
+    if bump_version:
+        bump_build_number()
 
     if not skip_install_check:
         ensure_pyinstaller()
@@ -170,6 +199,8 @@ def run_build(
     built_exe = exe_path(onefile)
     if not built_exe.is_file():
         raise FileNotFoundError(f"未找到生成的可执行文件: {built_exe}")
+
+    clean_artifacts(dist=False, build=True, spec=True)
 
     print()
     print("打包完成:")
@@ -201,6 +232,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="仅清理 build/、dist/ 与 spec 文件后退出",
     )
+    parser.add_argument(
+        "--no-bump",
+        action="store_true",
+        help="打包时不递增 BUILD_NUMBER（调试用）",
+    )
     return parser.parse_args()
 
 
@@ -215,6 +251,7 @@ def main() -> None:
         onefile=args.onefile,
         console=args.console,
         clean=not args.no_clean,
+        bump_version=not args.no_bump,
     )
 
 

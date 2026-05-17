@@ -1,8 +1,6 @@
 from PySide6.QtWidgets import (QMainWindow, QTabWidget, QWidget, QVBoxLayout,
                                QToolBar, QMessageBox, QMenuBar, QMenu,
                                QFileDialog, QStyle, QSplitter)
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import (QSyntaxHighlighter, QTextCharFormat, QColor, QFont,
                            QAction, QIcon)
@@ -12,8 +10,9 @@ from .remote_runner import RemoteRunnerWidget
 from .preferences_dialog import PreferencesDialog
 from .editor_config_dialog import EditorConfigDialog
 from .components import SnippetManagerWidget
-from .components.code_snippet import Base
+from .components.script_manager_widget import ScriptManagerWidget
 from .components.filter_dialog import FilterDialog
+from ..database import init_database, import_scripts_from_filesystem
 from ..utils.config_manager import config_manager
 
 
@@ -26,11 +25,10 @@ class MainWindow(QMainWindow):
         self.setup_shortcuts()
 
     def init_database(self):
-        """初始化数据库"""
-        engine = create_engine('sqlite:///data/snippets.db')
-        Base.metadata.create_all(engine)
-        Session = sessionmaker(bind=engine)
-        return Session()
+        """初始化 SQLite 并导入 data/scripts 中的脚本（首次）。"""
+        _engine, session = init_database()
+        import_scripts_from_filesystem(session)
+        return session
 
     def init_ui(self):
         # 设置窗口标题
@@ -73,11 +71,17 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.snippet_manager, code_icon, "")
         self.tab_widget.setTabToolTip(0, "代码片段管理")
 
+        # 脚本管理（SQLite）
+        self.script_manager = ScriptManagerWidget(self.session)
+        script_icon = QIcon("resources/icons/languages/code.svg")
+        self.tab_widget.addTab(self.script_manager, script_icon, "")
+        self.tab_widget.setTabToolTip(1, "脚本管理")
+
         # 添加远程操作选项卡
         self.remote_runner = RemoteRunnerWidget()
         remote_icon = QIcon("resources/icons/export.svg")
         self.tab_widget.addTab(self.remote_runner, remote_icon, "")
-        self.tab_widget.setTabToolTip(1, "远程操作")
+        self.tab_widget.setTabToolTip(2, "远程操作")
         
         # 恢复上次选中的标签页
         startup_tab = config_manager.get_general_setting('startup_tab', 0)
@@ -243,11 +247,17 @@ class MainWindow(QMainWindow):
 
     def show_about(self):
         """显示关于对话框"""
-        QMessageBox.about(self, "关于", """
+        from versions import display_version
+
+        QMessageBox.about(
+            self,
+            "关于",
+            f"""
             <h3>代码管理工具</h3>
-            <p>版本：1.0.0</p>
+            <p>版本：{display_version()}</p>
             <p>一个简单而强大的代码片段管理工具。</p>
-        """)
+            """,
+        )
 
     def show_filter_dialog(self):
         """显示筛选对话框"""
