@@ -12,7 +12,7 @@ from .editor_config_dialog import EditorConfigDialog
 from .components import SnippetManagerWidget
 from .components.script_manager_widget import ScriptManagerWidget
 from .components.filter_dialog import FilterDialog
-from ..database import init_database
+from ..database import import_scripts_from_filesystem, init_database
 from ..utils.config_manager import config_manager
 
 
@@ -27,6 +27,10 @@ class MainWindow(QMainWindow):
     def init_database(self):
         """初始化 SQLite（脚本与片段均存于 data/snippets.db）。"""
         _engine, session = init_database()
+        try:
+            import_scripts_from_filesystem(session)
+        except Exception:
+            pass
         return session
 
     def init_ui(self):
@@ -127,10 +131,20 @@ class MainWindow(QMainWindow):
             pass  # TODO: 实现打开文件功能
 
     def open_folder(self):
-        """打开文件夹"""
-        folder_path = QFileDialog.getExistingDirectory(self, "打开文件夹")
-        if folder_path:
-            pass  # TODO: 实现打开文件夹功能
+        """从文件夹导入脚本（子目录映射为分类路径）。"""
+        folder_path = QFileDialog.getExistingDirectory(self, "打开脚本文件夹")
+        if not folder_path:
+            return
+        try:
+            stats = self.script_manager.sync_from_directory(folder_path)
+            QMessageBox.information(
+                self,
+                "导入完成",
+                f"新增 {stats['inserted']} 个，更新 {stats['updated']} 个，"
+                f"未变化 {stats['unchanged']} 个。",
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "导入失败", str(e))
 
     def show_preferences(self):
         """显示首选项对话框"""
