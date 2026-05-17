@@ -12,7 +12,7 @@ from .editor_config_dialog import EditorConfigDialog
 from .components import SnippetManagerWidget
 from .components.script_manager_widget import ScriptManagerWidget
 from .components.filter_dialog import FilterDialog
-from ..database import init_database, sync_scripts_from_filesystem
+from ..database import init_database
 from ..utils.config_manager import config_manager
 
 
@@ -25,9 +25,8 @@ class MainWindow(QMainWindow):
         self.setup_shortcuts()
 
     def init_database(self):
-        """初始化 SQLite 并导入 data/scripts 中的脚本（首次）。"""
+        """初始化 SQLite（脚本与片段均存于 data/snippets.db）。"""
         _engine, session = init_database()
-        sync_scripts_from_filesystem(session)
         return session
 
     def init_ui(self):

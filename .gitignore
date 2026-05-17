@@ -35,6 +35,9 @@ ENV/
 *.db
 *.sqlite3
 
+# Runtime / generated
+data/temp/
+
 # Logs
 *.log
 

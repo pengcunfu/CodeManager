@@ -1,1 +1,0 @@
-cd D:\App\Common\WeChat & start WeChat.exe&WeChat.exe
