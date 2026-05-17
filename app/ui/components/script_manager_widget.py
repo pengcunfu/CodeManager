@@ -74,7 +74,7 @@ class ScriptManagerWidget(QWidget):
 
         tb.addStretch()
 
-        new_btn = QPushButton("➕ 新建")
+        new_btn = QPushButton("新建")
         new_btn.clicked.connect(self.new_script)
         tb.addWidget(new_btn)
 
@@ -100,7 +100,7 @@ class ScriptManagerWidget(QWidget):
         edit_layout.addWidget(self.code_editor)
 
         run_row = QHBoxLayout()
-        self.run_btn = QPushButton("▶ 运行")
+        self.run_btn = QPushButton("运行")
         self.run_btn.clicked.connect(self.run_current_script)
         run_row.addWidget(self.run_btn)
         run_row.addStretch()
@@ -256,8 +256,8 @@ class ScriptManagerWidget(QWidget):
         if not item:
             return
         menu = QMenu(self)
-        run_action = menu.addAction("▶ 执行")
-        delete_action = menu.addAction("🗑 删除")
+        run_action = menu.addAction("执行")
+        delete_action = menu.addAction("删除")
         action = menu.exec_(self.script_list.mapToGlobal(pos))
         if action == run_action:
             self.run_script(item.script)

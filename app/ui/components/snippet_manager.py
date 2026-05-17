@@ -2,9 +2,10 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QComboBox, QPushButton, QTextEdit,
                              QListWidget, QListWidgetItem, QSplitter, QFrame,
                              QMessageBox, QFileDialog, QMenu, QScrollArea,
-                             QDialog, QPlainTextEdit)
+                             QDialog, QPlainTextEdit, QAbstractItemView)
 from PySide6.QtCore import Qt, Signal, QProcess
-from PySide6.QtGui import QAction, QCursor, QIcon, QFont
+from PySide6.QtGui import QAction, QCursor, QIcon, QFont, QShortcut, QKeySequence
+import re
 from .tabbed_code_editor import TabbedCodeEditor
 from .code_snippet import CodeSnippetManager
 from .filter_dialog import FilterDialog
@@ -89,10 +90,6 @@ class SnippetManagerWidget(QWidget):
         
         # 搜索框
         search_container = QHBoxLayout()
-        # 搜索图标
-        search_icon = QLabel("🔍")
-        search_container.addWidget(search_icon)
-        
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("搜索代码片段...")
         self.search_input.textChanged.connect(self.on_search)
@@ -117,15 +114,24 @@ class SnippetManagerWidget(QWidget):
         toolbar_layout.addStretch()
 
         # 筛选按钮
-        filter_btn = QPushButton("🔍 筛选")
+        filter_btn = QPushButton("筛选")
         filter_btn.clicked.connect(self.show_filter_dialog)
         toolbar_layout.addWidget(filter_btn)
         
         # 新建按钮
-        new_btn = QPushButton("新建片段")
-        new_btn.setText("➕ 新建")
+        new_btn = QPushButton("新建")
         new_btn.clicked.connect(self.new_snippet)
         toolbar_layout.addWidget(new_btn)
+
+        self.export_btn = QPushButton("导出")
+        self.export_btn.setEnabled(False)
+        self.export_btn.clicked.connect(self.export_selected_snippets)
+        toolbar_layout.addWidget(self.export_btn)
+
+        self.delete_btn = QPushButton("删除")
+        self.delete_btn.setEnabled(False)
+        self.delete_btn.clicked.connect(self.delete_selected_snippets)
+        toolbar_layout.addWidget(self.delete_btn)
 
         layout.addWidget(toolbar)
 
@@ -140,7 +146,8 @@ class SnippetManagerWidget(QWidget):
         list_layout.setSpacing(2)  # 减少间距
         
         self.snippet_list = QListWidget()
-        self.snippet_list.itemClicked.connect(self.on_snippet_selected)
+        self.snippet_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.snippet_list.itemSelectionChanged.connect(self.on_selection_changed)
         self.snippet_list.setContextMenuPolicy(Qt.CustomContextMenu)
         self.snippet_list.customContextMenuRequested.connect(self.show_context_menu)
         self.snippet_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -163,10 +170,10 @@ class SnippetManagerWidget(QWidget):
         self.code_editor.code_changed.connect(self.auto_save)
         self.code_editor.metadata_changed.connect(self.auto_save)
         
-        # 添加Ctrl+S快捷键
-        from PySide6.QtGui import QShortcut, QKeySequence
         save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
         save_shortcut.activated.connect(self.save_snippet)
+        delete_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Delete), self.snippet_list)
+        delete_shortcut.activated.connect(self.delete_selected_snippets)
         splitter.addWidget(edit_container)
 
         # 设置分割器比例，左侧20%，右侧80%
@@ -206,6 +213,8 @@ class SnippetManagerWidget(QWidget):
         if current_tag in tags:
             self.tag_combo.setCurrentText(current_tag)
 
+        self._update_batch_action_state()
+
     def on_search(self):
         """搜索代码片段"""
         if not self.snippet_manager:
@@ -224,6 +233,7 @@ class SnippetManagerWidget(QWidget):
         snippets = self.snippet_manager.search_snippets(keyword, language, tag)
         for snippet in snippets:
             self.snippet_list.addItem(SnippetListItem(snippet))
+        self._update_batch_action_state()
 
     def on_language_changed(self, language):
         """语言选择改变时更新列表"""
@@ -341,22 +351,44 @@ class SnippetManagerWidget(QWidget):
             # 如果排序失败，返回原列表
             return snippets
 
-    def on_snippet_selected(self, item):
-        """选中代码片段时更新编辑区"""
-        if isinstance(item, SnippetListItem):
-            self.current_snippet = item.snippet
-            # 设置代码内容
-            self.code_editor.set_code(self.current_snippet.code)
-            # 设置语言
-            self.code_editor.set_language(self.current_snippet.language)
-            # 设置元数据
-            metadata = {
-                'title': self.current_snippet.title,
-                'language': self.current_snippet.language,
-                'description': self.current_snippet.description or '',
-                'tags': self.current_snippet.tags or ''
-            }
-            self.code_editor.set_metadata(metadata)
+    def get_selected_snippets(self):
+        """返回当前选中的代码片段（支持 Shift/Ctrl 多选）。"""
+        snippets = []
+        for item in self.snippet_list.selectedItems():
+            if isinstance(item, SnippetListItem):
+                snippets.append(item.snippet)
+        return snippets
+
+    def _update_batch_action_state(self):
+        count = len(self.snippet_list.selectedItems())
+        enabled = count > 0
+        self.export_btn.setEnabled(enabled)
+        self.delete_btn.setEnabled(enabled)
+
+    def _load_snippet_into_editor(self, snippet):
+        self.current_snippet = snippet
+        self.code_editor.set_code(snippet.code or "")
+        self.code_editor.set_language(snippet.language)
+        self.code_editor.set_metadata({
+            'title': snippet.title,
+            'language': snippet.language,
+            'description': snippet.description or '',
+            'tags': snippet.tags or '',
+        })
+
+    def on_selection_changed(self):
+        """选择变化时更新编辑区与批量操作按钮。"""
+        self._update_batch_action_state()
+        selected = self.get_selected_snippets()
+        if len(selected) == 1:
+            self._load_snippet_into_editor(selected[0])
+            return
+        if len(selected) > 1:
+            current = self.snippet_list.currentItem()
+            if isinstance(current, SnippetListItem) and current.isSelected():
+                self._load_snippet_into_editor(current.snippet)
+            return
+        self.current_snippet = None
 
     def new_snippet(self):
         """新建代码片段"""
@@ -461,87 +493,139 @@ class SnippetManagerWidget(QWidget):
             # 自动保存失败时不显示错误消息
             pass
 
-    def delete_snippet(self, snippet):
-        """删除代码片段"""
-        if not snippet or not self.snippet_manager:
+    def delete_selected_snippets(self):
+        """删除选中的一个或多个代码片段。"""
+        snippets = self.get_selected_snippets()
+        if not snippets or not self.snippet_manager:
             return
-            
+
+        if len(snippets) == 1:
+            message = f"确定要删除代码片段「{snippets[0].title}」吗？"
+        else:
+            message = f"确定要删除选中的 {len(snippets)} 个代码片段吗？"
+
         reply = QMessageBox.question(
-            self, 
-            "确认删除", 
-            f"确定要删除代码片段 '{snippet.title}' 吗？",
+            self,
+            "确认删除",
+            message,
             QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.No,
         )
-        
-        if reply == QMessageBox.Yes:
-            try:
-                self.snippet_manager.delete_snippet(snippet.id)
-                self.load_snippets()
-                # 如果删除的是当前编辑的片段，清空编辑器
-                if self.current_snippet and self.current_snippet.id == snippet.id:
-                    self.current_snippet = None
-                    self.code_editor.new_snippet()
-                QMessageBox.information(self, "成功", "删除成功")
-            except Exception as e:
-                QMessageBox.critical(self, "错误", f"删除失败：{str(e)}")
-
-    def export_snippet(self):
-        """导出代码片段"""
-        if not self.current_snippet:
-            QMessageBox.warning(self, "错误", "请先选择要导出的代码片段")
+        if reply != QMessageBox.Yes:
             return
 
-        # 选择导出格式
+        deleted_ids = {s.id for s in snippets}
+        try:
+            for snippet in snippets:
+                self.snippet_manager.delete_snippet(snippet.id)
+            self.load_snippets()
+            if self.current_snippet and self.current_snippet.id in deleted_ids:
+                self.current_snippet = None
+                self.code_editor.new_snippet()
+            QMessageBox.information(self, "成功", f"已删除 {len(snippets)} 个代码片段")
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"删除失败：{str(e)}")
+
+    def delete_snippet(self, snippet):
+        """删除单个代码片段（右键菜单等）。"""
+        if not snippet:
+            return
+        for i in range(self.snippet_list.count()):
+            item = self.snippet_list.item(i)
+            if isinstance(item, SnippetListItem) and item.snippet.id == snippet.id:
+                item.setSelected(True)
+                break
+        self.delete_selected_snippets()
+
+    def _safe_export_basename(self, title: str, snippet_id: int) -> str:
+        name = re.sub(r'[<>:"/\\|?*]', "_", title.strip()) or "snippet"
+        return f"{name}_{snippet_id}"
+
+    def export_selected_snippets(self):
+        """导出选中的一个或多个代码片段。"""
+        snippets = self.get_selected_snippets()
+        if not snippets:
+            QMessageBox.warning(self, "提示", "请先选择要导出的代码片段")
+            return
+
         format_menu = QMenu(self)
         source_action = format_menu.addAction("源码格式")
-        json_action = format_menu.addAction("JSON格式")
-        markdown_action = format_menu.addAction("Markdown格式")
+        json_action = format_menu.addAction("JSON 格式")
+        markdown_action = format_menu.addAction("Markdown 格式")
 
         action = format_menu.exec_(QCursor.pos())
         if not action:
             return
 
-        if action == source_action:
-            # 源码导出
-            extension = self._get_file_extension(self.current_snippet.language)
-            file_filter = f"{self.current_snippet.language.upper()} 文件 (*{extension})"
-            default_name = f"{self.current_snippet.title}{extension}"
-            
+        try:
+            if action == source_action:
+                self._export_snippets_as_source(snippets)
+            elif action == json_action:
+                self._export_snippets_as_bundle(snippets, "json")
+            elif action == markdown_action:
+                self._export_snippets_as_bundle(snippets, "markdown")
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"导出失败：{str(e)}")
+
+    def export_snippet(self):
+        """导出当前片段（兼容旧入口）。"""
+        if self.current_snippet:
+            for i in range(self.snippet_list.count()):
+                item = self.snippet_list.item(i)
+                if isinstance(item, SnippetListItem) and item.snippet.id == self.current_snippet.id:
+                    self.snippet_list.clearSelection()
+                    item.setSelected(True)
+                    break
+        self.export_selected_snippets()
+
+    def _export_snippets_as_source(self, snippets):
+        if len(snippets) == 1:
+            snippet = snippets[0]
+            extension = self._get_file_extension(snippet.language)
+            file_filter = f"{snippet.language.upper()} 文件 (*{extension})"
             file_path, _ = QFileDialog.getSaveFileName(
                 self,
                 "导出源码",
-                default_name,
-                file_filter
+                f"{snippet.title}{extension}",
+                file_filter,
             )
-            
             if file_path:
-                try:
-                    with open(file_path, 'w', encoding='utf-8') as f:
-                        f.write(self.current_snippet.code)
-                    QMessageBox.information(self, "成功", "源码导出成功")
-                except Exception as e:
-                    QMessageBox.critical(self, "错误", f"导出失败：{str(e)}")
-        else:
-            # JSON或Markdown导出
-            format = 'json' if action == json_action else 'markdown'
-            extension = '.json' if format == 'json' else '.md'
-            
-            file_path, _ = QFileDialog.getSaveFileName(
-                self,
-                "导出代码片段",
-                f"{self.current_snippet.title}{extension}",
-                f"{'JSON' if format == 'json' else 'Markdown'} 文件 (*{extension})"
-            )
-            
-            if file_path:
-                try:
-                    content = self.snippet_manager.export_snippets([self.current_snippet.id], format)
-                    with open(file_path, 'w', encoding='utf-8') as f:
-                        f.write(content)
-                    QMessageBox.information(self, "成功", "导出成功")
-                except Exception as e:
-                    QMessageBox.critical(self, "错误", f"导出失败：{str(e)}")
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(snippet.code or "")
+                QMessageBox.information(self, "成功", "源码导出成功")
+            return
+
+        dir_path = QFileDialog.getExistingDirectory(self, "选择导出目录")
+        if not dir_path:
+            return
+        for snippet in snippets:
+            ext = self._get_file_extension(snippet.language)
+            filename = f"{self._safe_export_basename(snippet.title, snippet.id)}{ext}"
+            path = os.path.join(dir_path, filename)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(snippet.code or "")
+        QMessageBox.information(self, "成功", f"已导出 {len(snippets)} 个源码文件")
+
+    def _export_snippets_as_bundle(self, snippets, fmt: str):
+        extension = ".json" if fmt == "json" else ".md"
+        default_name = (
+            f"{snippets[0].title}{extension}"
+            if len(snippets) == 1
+            else f"snippets_export{extension}"
+        )
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "导出代码片段",
+            default_name,
+            f"{'JSON' if fmt == 'json' else 'Markdown'} 文件 (*{extension})",
+        )
+        if not file_path:
+            return
+        ids = [s.id for s in snippets]
+        content = self.snippet_manager.export_snippets(ids, fmt)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        QMessageBox.information(self, "成功", f"已导出 {len(snippets)} 个代码片段")
     
     def _get_file_extension(self, language):
         """根据编程语言获取文件扩展名"""
@@ -634,34 +718,44 @@ class SnippetManagerWidget(QWidget):
 
     def show_context_menu(self, pos):
         """显示右键菜单"""
-        item = self.snippet_list.itemAt(pos)
-        if not item:
+        clicked = self.snippet_list.itemAt(pos)
+        if clicked and not clicked.isSelected():
+            self.snippet_list.clearSelection()
+            clicked.setSelected(True)
+
+        selected = self.get_selected_snippets()
+        if not selected:
             return
 
+        count = len(selected)
         menu = QMenu(self)
-        execute_action = menu.addAction("▶️ 执行")
-        menu.addSeparator()
-        
-        # 添加在外部编辑器中打开的选项
-        open_vscode_action = menu.addAction("📝 在VSCode中打开")
-        open_notepad_action = menu.addAction("📄 在记事本中打开")
-        menu.addSeparator()
-        
-        export_action = menu.addAction("📤 导出")
-        delete_action = menu.addAction("🗑️ 删除")
+        if count == 1:
+            execute_action = menu.addAction("执行")
+            menu.addSeparator()
+            open_vscode_action = menu.addAction("在 VSCode 中打开")
+            open_notepad_action = menu.addAction("在记事本中打开")
+            menu.addSeparator()
+        else:
+            execute_action = open_vscode_action = open_notepad_action = None
+
+        export_label = f"导出 ({count} 项)" if count > 1 else "导出"
+        delete_label = f"删除 ({count} 项)" if count > 1 else "删除"
+        export_action = menu.addAction(export_label)
+        delete_action = menu.addAction(delete_label)
 
         action = menu.exec_(self.snippet_list.mapToGlobal(pos))
-        if action == execute_action:
-            self.execute_snippet(item.snippet)
-        elif action == open_vscode_action:
-            self.open_in_vscode(item.snippet)
-        elif action == open_notepad_action:
-            self.open_in_notepad(item.snippet)
-        elif action == export_action:
-            self.current_snippet = item.snippet
-            self.export_snippet()
+        if count == 1:
+            snippet = selected[0]
+            if action == execute_action:
+                self.execute_snippet(snippet)
+            elif action == open_vscode_action:
+                self.open_in_vscode(snippet)
+            elif action == open_notepad_action:
+                self.open_in_notepad(snippet)
+        if action == export_action:
+            self.export_selected_snippets()
         elif action == delete_action:
-            self.delete_snippet(item.snippet)
+            self.delete_selected_snippets()
 
     def open_in_vscode(self, snippet):
         """在VSCode中打开代码片段"""
@@ -798,24 +892,6 @@ class SnippetManagerWidget(QWidget):
         """显示执行结果"""
         dialog = ExecutionResultDialog(title, stdout, stderr, returncode, self)
         dialog.exec_()
-
-    def delete_snippet(self, snippet):
-        """删除代码片段"""
-        reply = QMessageBox.question(
-            self,
-            "确认删除",
-            f"确定要删除代码片段 '{snippet.title}' 吗？",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        
-        if reply == QMessageBox.Yes:
-            try:
-                self.snippet_manager.delete_snippet(snippet.id)
-                self.load_snippets()
-                QMessageBox.information(self, "成功", "删除成功")
-            except Exception as e:
-                QMessageBox.critical(self, "错误", f"删除失败：{str(e)}")
 
 
 class ExecutionResultDialog(QDialog):

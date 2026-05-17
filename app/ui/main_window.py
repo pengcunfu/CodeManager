@@ -154,78 +154,78 @@ class MainWindow(QMainWindow):
     def create_system_tools_menu(self, menu):
         """创建系统工具菜单"""
         # 文件管理器
-        explorer_action = QAction("📁 文件管理器", self)
+        explorer_action = QAction("文件管理器", self)
         explorer_action.triggered.connect(lambda: self.open_system_tool("explorer"))
         menu.addAction(explorer_action)
 
         # 任务管理器
-        taskmgr_action = QAction("⚙️ 任务管理器", self)
+        taskmgr_action = QAction("任务管理器", self)
         taskmgr_action.triggered.connect(lambda: self.open_system_tool("taskmgr"))
         menu.addAction(taskmgr_action)
 
         # 记事本
-        notepad_action = QAction("📝 记事本", self)
+        notepad_action = QAction("记事本", self)
         notepad_action.triggered.connect(lambda: self.open_system_tool("notepad"))
         menu.addAction(notepad_action)
 
         # 计算器
-        calc_action = QAction("🧮 计算器", self)
+        calc_action = QAction("计算器", self)
         calc_action.triggered.connect(lambda: self.open_system_tool("calc"))
         menu.addAction(calc_action)
 
         menu.addSeparator()
 
         # 控制面板
-        control_action = QAction("🎛️ 控制面板", self)
+        control_action = QAction("控制面板", self)
         control_action.triggered.connect(lambda: self.open_system_tool("control"))
         menu.addAction(control_action)
 
         # 设备管理器
-        devmgmt_action = QAction("🔧 设备管理器", self)
+        devmgmt_action = QAction("设备管理器", self)
         devmgmt_action.triggered.connect(lambda: self.open_system_tool("devmgmt.msc"))
         menu.addAction(devmgmt_action)
 
         # 服务管理
-        services_action = QAction("⚡ 服务管理", self)
+        services_action = QAction("服务管理", self)
         services_action.triggered.connect(lambda: self.open_system_tool("services.msc"))
         menu.addAction(services_action)
 
         # 注册表编辑器
-        regedit_action = QAction("📋 注册表编辑器", self)
+        regedit_action = QAction("注册表编辑器", self)
         regedit_action.triggered.connect(lambda: self.open_system_tool("regedit"))
         menu.addAction(regedit_action)
 
         menu.addSeparator()
 
         # 系统信息
-        msinfo_action = QAction("ℹ️ 系统信息", self)
+        msinfo_action = QAction("系统信息", self)
         msinfo_action.triggered.connect(lambda: self.open_system_tool("msinfo32"))
         menu.addAction(msinfo_action)
 
         # 环境变量
-        env_action = QAction("🌍 环境变量", self)
+        env_action = QAction("环境变量", self)
         env_action.triggered.connect(lambda: self.open_system_tool("rundll32 sysdm.cpl,EditEnvironmentVariables"))
         menu.addAction(env_action)
 
         # 电源选项
-        power_action = QAction("🔋 电源选项", self)
+        power_action = QAction("电源选项", self)
         power_action.triggered.connect(lambda: self.open_system_tool("powercfg.cpl"))
         menu.addAction(power_action)
 
         # 网络连接
-        network_action = QAction("🌐 网络连接", self)
+        network_action = QAction("网络连接", self)
         network_action.triggered.connect(lambda: self.open_system_tool("ncpa.cpl"))
         menu.addAction(network_action)
 
         menu.addSeparator()
 
         # 命令提示符
-        cmd_action = QAction("💻 命令提示符", self)
+        cmd_action = QAction("命令提示符", self)
         cmd_action.triggered.connect(lambda: self.open_system_tool("cmd"))
         menu.addAction(cmd_action)
 
         # PowerShell
-        powershell_action = QAction("🔷 PowerShell", self)
+        powershell_action = QAction("PowerShell", self)
         powershell_action.triggered.connect(lambda: self.open_system_tool("powershell"))
         menu.addAction(powershell_action)
 
