@@ -1,16 +1,26 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QTabWidget, QScrollArea
 from PySide6.QtCore import Signal, Qt
 from PySide6.QtGui import QFont
-from app.ui.components.enhanced_code_editor import EnhancedCodeEditor, SyntaxHighlighter
 from .metadata_form import MetadataFormWidget
 
+try:
+    from app.ui.components.web_code_editor import WebCodeEditor as SourceCodeEditorBase
+    _USE_WEB_EDITOR = True
+except ImportError:
+    from app.ui.components.enhanced_code_editor import EnhancedCodeEditor as SourceCodeEditorBase
+    _USE_WEB_EDITOR = False
 
-class SourceCodeEditor(EnhancedCodeEditor):
-    """纯源码编辑器，不含注释元数据。"""
+
+class SourceCodeEditor(SourceCodeEditorBase):
+    """纯源码编辑器（HTML WebView，回退为 QPlainTextEdit）。"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setPlaceholderText("请输入源代码...")
+        if _USE_WEB_EDITOR:
+            self.setPlaceholderText("请输入源代码...")
+            self.load_saved_config()
+        else:
+            self.setPlaceholderText("请输入源代码...")
 
     def set_metadata(self, metadata):
         pass
@@ -20,7 +30,10 @@ class SourceCodeEditor(EnhancedCodeEditor):
 
 
 class TabbedCodeEditor(QWidget):
-    """代码编辑：元信息表单 + 源码，元数据存 SQLite。"""
+    """代码编辑：源码 + 元信息表单，元数据存 SQLite。"""
+
+    TAB_SOURCE = 0
+    TAB_METADATA = 1
 
     code_changed = Signal(str)
     metadata_changed = Signal(dict)
@@ -47,10 +60,11 @@ class TabbedCodeEditor(QWidget):
         meta_scroll.setFrameShape(QScrollArea.NoFrame)
         self.metadata_editor = MetadataFormWidget(mode=self.mode)
         meta_scroll.setWidget(self.metadata_editor)
-        self.tab_widget.addTab(meta_scroll, "元信息")
 
         self.source_editor = SourceCodeEditor()
         self.tab_widget.addTab(self.source_editor, "源码")
+        self.tab_widget.addTab(meta_scroll, "元信息")
+        self.tab_widget.setCurrentIndex(self.TAB_SOURCE)
 
         layout.addWidget(self.tab_widget)
 
@@ -88,7 +102,7 @@ class TabbedCodeEditor(QWidget):
         lang = "python" if self.mode == "snippet" else "batch"
         self.set_code(default_code)
         self.set_language(lang)
-        self.tab_widget.setCurrentIndex(0)
+        self.tab_widget.setCurrentIndex(self.TAB_SOURCE)
 
     def apply_config(self, config):
         self.source_editor.apply_config(config)

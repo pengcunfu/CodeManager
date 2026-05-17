@@ -8,8 +8,8 @@ class ConfigManager:
     
     def __init__(self, config_dir: str = None):
         if config_dir is None:
-            # 默认配置目录
-            self.config_dir = Path("d:/Projects/My/system/code-management/resources/config")
+            project_root = Path(__file__).resolve().parents[2]
+            self.config_dir = project_root / "resources" / "config"
         else:
             self.config_dir = Path(config_dir)
         

@@ -37,6 +37,8 @@ ENV/
 
 # Runtime / generated
 data/temp/
+resources/editor/package/
+resources/editor/*.tgz
 
 # Logs
 *.log

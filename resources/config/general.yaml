@@ -4,4 +4,4 @@ check_updates: true
 language: zh_CN
 max_recent_files: 10
 show_tips: true
-startup_tab: 0
+startup_tab: 1

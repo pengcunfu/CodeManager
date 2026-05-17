@@ -78,7 +78,7 @@ class MetadataFormWidget(QWidget):
             form.addRow("平台", self.platform_combo)
 
             self.category_edit = QLineEdit()
-            self.category_edit.setPlaceholderText("例如：服务管理工具")
+            self.category_edit.setPlaceholderText("例如：服务管理工具 或 服务管理工具/数据库")
             form.addRow("分类", self.category_edit)
 
         self.description_edit = QTextEdit()

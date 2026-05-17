@@ -1,372 +1,261 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel
-from PySide6.QtWebEngineWidgets import QWebEngineView
+from pathlib import Path
+
+from PySide6.QtCore import QObject, QUrl, Signal, Slot
 from PySide6.QtWebChannel import QWebChannel
-from PySide6.QtCore import QObject, Signal, Slot, QUrl
+from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtWidgets import QWidget, QVBoxLayout
+
 import json
-import os
+
+from app.utils.config_manager import config_manager
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+EDITOR_HTML = PROJECT_ROOT / "resources" / "editor" / "code_editor.html"
+
+DEFAULT_EDITOR_CONFIG = {
+    "font": {
+        "family": "Cascadia Code",
+        "size": 13,
+        "bold": False,
+        "italic": False,
+    },
+    "colors": {
+        "background": "#282A36",
+        "text": "#F8F8F2",
+        "keyword": "#FF79C6",
+        "string": "#F1FA8C",
+        "comment": "#6272A4",
+        "number": "#BD93F9",
+        "current_line": "rgba(68, 71, 90, 0.45)",
+        "line_number": "#6272A4",
+        "line_number_bg": "#21222C",
+    },
+    "behavior": {
+        "tab_size": 4,
+        "use_spaces": True,
+        "auto_indent": True,
+        "show_line_numbers": True,
+        "highlight_current_line": True,
+        "word_wrap": False,
+    },
+}
 
 
 class CodeEditorBridge(QObject):
-    """JavaScript与Python之间的桥接对象"""
+    """JavaScript 与 Python 之间的桥接对象。"""
 
-    # 信号定义
     code_changed = Signal(str)
-    language_changed = Signal(str)
 
     def __init__(self):
         super().__init__()
         self._code = ""
         self._language = "python"
-        self._metadata = {}
 
     @Slot(str)
-    def on_code_changed(self, code):
-        """当代码内容改变时调用"""
+    def on_code_changed(self, code: str):
         self._code = code
         self.code_changed.emit(code)
 
     @Slot(str)
-    def on_language_changed(self, language):
-        """当语言改变时调用"""
-        self._language = language
-        self.language_changed.emit(language)
-
-    @Slot(str)
-    def set_code(self, code):
-        """设置代码内容"""
+    def set_code(self, code: str):
         self._code = code
 
     @Slot(str)
-    def set_language(self, language):
-        """设置编程语言"""
+    def set_language(self, language: str):
         self._language = language
 
-    @Slot(str)
-    def set_metadata(self, metadata_json):
-        """设置元数据"""
-        try:
-            self._metadata = json.loads(metadata_json)
-        except:
-            self._metadata = {}
-
     @Slot(result=str)
-    def get_code(self):
-        """获取代码内容"""
+    def get_code(self) -> str:
         return self._code
 
     @Slot(result=str)
-    def get_language(self):
-        """获取编程语言"""
+    def get_language(self) -> str:
         return self._language
-
-    @Slot(result=str)
-    def get_metadata(self):
-        """获取元数据"""
-        return json.dumps(self._metadata)
 
 
 class WebCodeEditor(QWidget):
-    """基于WebView和Monaco Editor的代码编辑器"""
+    """基于 QWebEngineView + Ace Editor 的代码编辑器。"""
 
     code_changed = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.bridge = CodeEditorBridge()
-        self.web_view = None
+        self.web_view = QWebEngineView()
         self.current_language = "python"
+        self._page_ready = False
+        self._pending_code: str | None = None
+        self._pending_language: str | None = None
+        self._pending_config: dict | None = None
+        self._pending_placeholder: str | None = None
+
         self.setup_ui()
         self.setup_web_channel()
         self.load_editor()
-
-        # 连接信号
         self.bridge.code_changed.connect(self.code_changed.emit)
 
     def setup_ui(self):
-        """设置UI布局"""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-
-        # 创建WebView
-        self.web_view = QWebEngineView()
         layout.addWidget(self.web_view)
 
     def setup_web_channel(self):
-        """设置Web通道用于JavaScript与Python通信"""
         self.channel = QWebChannel()
         self.channel.registerObject("bridge", self.bridge)
         self.web_view.page().setWebChannel(self.channel)
+        self.web_view.loadFinished.connect(self._on_load_finished)
+
+    def _editor_html_path(self) -> Path:
+        if EDITOR_HTML.is_file():
+            return EDITOR_HTML
+        fallback = Path("resources/editor/code_editor.html")
+        if fallback.is_file():
+            return fallback.resolve()
+        raise FileNotFoundError(f"找不到编辑器 HTML: {EDITOR_HTML}")
 
     def load_editor(self):
-        """加载Monaco Editor"""
-        html_content = self.get_editor_html()
+        html_path = self._editor_html_path()
+        self.web_view.load(QUrl.fromLocalFile(str(html_path)))
 
-        # 创建临时HTML文件
-        temp_dir = "data/temp"
-        os.makedirs(temp_dir, exist_ok=True)
-        temp_file = os.path.join(temp_dir, "monaco_editor.html")
+    def _on_load_finished(self, ok: bool):
+        if not ok:
+            return
+        self._page_ready = True
+        config = self._normalize_config(config_manager.get_editor_config())
+        self._run_js(f"window.applyConfig({json.dumps(config)});")
+        if self._pending_placeholder is not None:
+            self._run_js(f"window.setPlaceholder({json.dumps(self._pending_placeholder)});")
+        if self._pending_language:
+            self.set_language(self._pending_language)
+        if self._pending_code is not None:
+            self.set_code(self._pending_code)
+        elif self.bridge._code:
+            self.set_code(self.bridge._code)
+        if self._pending_config:
+            self.apply_config(self._pending_config)
 
-        with open(temp_file, 'w', encoding='utf-8') as f:
-            f.write(html_content)
+    def _run_js(self, script: str):
+        if self._page_ready:
+            self.web_view.page().runJavaScript(script)
 
-        # 加载HTML文件
-        self.web_view.load(QUrl.fromLocalFile(temp_file))
+    @staticmethod
+    def _normalize_config(config: dict | None) -> dict:
+        if not config:
+            return DEFAULT_EDITOR_CONFIG.copy()
 
-    def get_editor_html(self):
-        """生成简化的代码编辑器HTML内容"""
-        return '''
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Code Editor</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            background-color: #1e1e1e;
-            color: #d4d4d4;
-        }
-        #container {
-            width: 100vw;
-            height: 100vh;
-            padding: 10px;
-            box-sizing: border-box;
-        }
-        #editor {
-            width: 100%;
-            height: 100%;
-            background-color: #1e1e1e;
-            color: #d4d4d4;
-            border: none;
-            outline: none;
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            font-size: 14px;
-            line-height: 1.5;
-            resize: none;
-            tab-size: 4;
-            white-space: pre;
-            overflow-wrap: normal;
-            overflow-x: auto;
-        }
-        .line-numbers {
-            position: absolute;
-            left: 0;
-            top: 10px;
-            width: 50px;
-            background-color: #252526;
-            color: #858585;
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            font-size: 14px;
-            line-height: 1.5;
-            text-align: right;
-            padding-right: 10px;
-            user-select: none;
-            border-right: 1px solid #3e3e42;
-        }
-        #editor-container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-        #editor-text {
-            margin-left: 60px;
-            width: calc(100% - 60px);
-            height: 100%;
-        }
-    </style>
-</head>
-<body>
-    <div id="container">
-        <div id="editor-container">
-            <div class="line-numbers" id="line-numbers">1</div>
-            <textarea id="editor" spellcheck="false" placeholder="在这里输入代码..."></textarea>
-        </div>
-    </div>
-    
-    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
-    
-    <script>
-        let bridge;
-        let editor = document.getElementById('editor');
-        let lineNumbers = document.getElementById('line-numbers');
-        
-        // 初始化WebChannel
-        new QWebChannel(qt.webChannelTransport, function(channel) {
-            bridge = channel.objects.bridge;
-            initializeEditor();
-        });
-        
-        function initializeEditor() {
-            // 监听内容变化
-            editor.addEventListener('input', function() {
-                updateLineNumbers();
-                if (bridge) {
-                    bridge.on_code_changed(editor.value);
-                }
-            });
-            
-            // 监听键盘事件
-            editor.addEventListener('keydown', function(e) {
-                if (e.key === 'Tab') {
-                    e.preventDefault();
-                    const start = editor.selectionStart;
-                    const end = editor.selectionEnd;
-                    editor.value = editor.value.substring(0, start) + '    ' + editor.value.substring(end);
-                    editor.selectionStart = editor.selectionEnd = start + 4;
-                    updateLineNumbers();
-                }
-            });
-            
-            // 监听滚动事件
-            editor.addEventListener('scroll', function() {
-                lineNumbers.scrollTop = editor.scrollTop;
-            });
-            
-            updateLineNumbers();
-        }
-        
-        function updateLineNumbers() {
-            const lines = editor.value.split('\n');
-            const lineCount = lines.length;
-            let lineNumbersText = '';
-            for (let i = 1; i <= lineCount; i++) {
-                lineNumbersText += i + '\n';
+        if "font" in config or "colors" in config or "behavior" in config:
+            merged = {
+                "font": {**DEFAULT_EDITOR_CONFIG["font"], **config.get("font", {})},
+                "colors": {**DEFAULT_EDITOR_CONFIG["colors"], **config.get("colors", {})},
+                "behavior": {**DEFAULT_EDITOR_CONFIG["behavior"], **config.get("behavior", {})},
             }
-            lineNumbers.textContent = lineNumbersText;
-        }
-        
-        // 提供给Python调用的函数
-        window.setCode = function(code) {
-            if (editor) {
-                editor.value = code;
-                updateLineNumbers();
-            }
-        };
-        
-        window.setLanguage = function(language) {
-            // 简化版本，不实现语法高亮
-            console.log('Language set to:', language);
-        };
-        
-        window.getCode = function() {
-            return editor ? editor.value : '';
-        };
-        
-        window.setTheme = function(theme) {
-            console.log('Theme set to:', theme);
-        };
-        
-        window.insertText = function(text) {
-            if (editor) {
-                const start = editor.selectionStart;
-                const end = editor.selectionEnd;
-                editor.value = editor.value.substring(0, start) + text + editor.value.substring(end);
-                editor.selectionStart = editor.selectionEnd = start + text.length;
-                updateLineNumbers();
-            }
-        };
-        
-        window.focus = function() {
-            if (editor) {
-                editor.focus();
-            }
-        };
-    </script>
-</body>
-</html>
-        '''
+            return merged
 
-    def set_code(self, code):
-        """设置代码内容"""
+        return {
+            "font": {
+                "family": config.get("font_family", DEFAULT_EDITOR_CONFIG["font"]["family"]),
+                "size": config.get("font_size", DEFAULT_EDITOR_CONFIG["font"]["size"]),
+            },
+            "colors": DEFAULT_EDITOR_CONFIG["colors"],
+            "behavior": {
+                "tab_size": config.get("tab_size", 4),
+                "show_line_numbers": config.get("line_numbers", True),
+                "word_wrap": config.get("word_wrap", False),
+                "auto_indent": config.get("auto_indent", True),
+                "highlight_current_line": True,
+            },
+        }
+
+    def set_code(self, code: str):
         self.bridge.set_code(code)
-        self.web_view.page().runJavaScript(f"window.setCode({json.dumps(code)});")
+        payload = json.dumps(code or "")
+        if self._page_ready:
+            self.web_view.page().runJavaScript(f"window.setCode({payload});")
+        else:
+            self._pending_code = code
 
-    def get_code(self):
-        """获取代码内容"""
+    def get_code(self) -> str:
         return self.bridge.get_code()
 
-    def set_language(self, language):
-        """设置编程语言"""
-        self.current_language = language.lower()
+    def set_language(self, language: str):
+        self.current_language = (language or "text").lower()
         self.bridge.set_language(self.current_language)
+        monaco_lang = self._map_language(self.current_language)
+        if self._page_ready:
+            self.web_view.page().runJavaScript(f"window.setLanguage({json.dumps(monaco_lang)});")
+        else:
+            self._pending_language = self.current_language
 
-        # 映射语言名称到Monaco Editor支持的语言ID
-        language_map = {
-            'python': 'python',
-            'javascript': 'javascript',
-            'js': 'javascript',
-            'typescript': 'typescript',
-            'ts': 'typescript',
-            'java': 'java',
-            'c': 'c',
-            'cpp': 'cpp',
-            'c++': 'cpp',
-            'csharp': 'csharp',
-            'c#': 'csharp',
-            'php': 'php',
-            'ruby': 'ruby',
-            'go': 'go',
-            'rust': 'rust',
-            'swift': 'swift',
-            'kotlin': 'kotlin',
-            'scala': 'scala',
-            'r': 'r',
-            'perl': 'perl',
-            'lua': 'lua',
-            'shell': 'shell',
-            'bash': 'shell',
-            'powershell': 'powershell',
-            'batch': 'bat',
-            'html': 'html',
-            'css': 'css',
-            'scss': 'scss',
-            'less': 'less',
-            'xml': 'xml',
-            'json': 'json',
-            'yaml': 'yaml',
-            'sql': 'sql',
-            'dockerfile': 'dockerfile',
-            'markdown': 'markdown',
-            'md': 'markdown'
-        }
+    def setPlaceholderText(self, text: str):
+        if self._page_ready:
+            self.web_view.page().runJavaScript(f"window.setPlaceholder({json.dumps(text)});")
+        else:
+            self._pending_placeholder = text
 
-        monaco_language = language_map.get(self.current_language, 'plaintext')
-        self.web_view.page().runJavaScript(f"window.setLanguage('{monaco_language}');")
+    def apply_config(self, config: dict):
+        normalized = self._normalize_config(config)
+        if self._page_ready:
+            self.web_view.page().runJavaScript(f"window.applyConfig({json.dumps(normalized)});")
+        else:
+            self._pending_config = normalized
 
-    def set_theme(self, theme='vs-dark'):
-        """设置编辑器主题"""
-        self.web_view.page().runJavaScript(f"window.setTheme('{theme}');")
+    def load_saved_config(self):
+        self.apply_config(config_manager.get_editor_config())
 
-    def insert_text(self, text):
-        """在当前位置插入文本"""
+    def insert_text(self, text: str):
         self.web_view.page().runJavaScript(f"window.insertText({json.dumps(text)});")
 
-    def focus(self):
-        """聚焦到编辑器"""
+    def focusEditor(self):
         self.web_view.page().runJavaScript("window.focus();")
 
-    def set_metadata(self, metadata):
-        """设置元数据"""
-        self.bridge.set_metadata(json.dumps(metadata))
+    def focus(self):
+        self.focusEditor()
 
-    def get_metadata(self):
-        """获取元数据"""
-        try:
-            return json.loads(self.bridge.get_metadata())
-        except:
-            return {}
-
-    def new_snippet(self):
-        """创建新代码片段"""
-        template = '''/* title: 新建代码片段 */
-/* language: python */
-/* tags: tag1, tag2 */
-/* description: 在这里添加描述 */
-
-# 在这里编写代码
-print("Hello, World!")
-'''
-        self.set_code(template)
+    @staticmethod
+    def _map_language(language: str) -> str:
+        """返回 Ace 编辑器识别的语言键（见 code_editor.html LANG_MODES）。"""
+        language_map = {
+            "python": "python",
+            "javascript": "javascript",
+            "js": "javascript",
+            "typescript": "typescript",
+            "ts": "typescript",
+            "java": "java",
+            "c": "c",
+            "cpp": "cpp",
+            "c++": "cpp",
+            "csharp": "csharp",
+            "c#": "csharp",
+            "php": "php",
+            "ruby": "ruby",
+            "go": "go",
+            "rust": "rust",
+            "swift": "swift",
+            "kotlin": "kotlin",
+            "scala": "scala",
+            "r": "r",
+            "perl": "perl",
+            "lua": "lua",
+            "shell": "bash",
+            "bash": "bash",
+            "powershell": "powershell",
+            "batch": "batch",
+            "bat": "batch",
+            "cmd": "batch",
+            "html": "html",
+            "htm": "html",
+            "css": "css",
+            "scss": "scss",
+            "less": "less",
+            "xml": "xml",
+            "json": "json",
+            "yaml": "yaml",
+            "yml": "yaml",
+            "sql": "sql",
+            "dockerfile": "dockerfile",
+            "markdown": "markdown",
+            "md": "markdown",
+            "text": "text",
+            "plaintext": "text",
+        }
+        return language_map.get((language or "text").lower(), "text")

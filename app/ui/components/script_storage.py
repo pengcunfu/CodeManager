@@ -81,7 +81,15 @@ class ScriptManager:
         if platform:
             query = query.filter(Script.platform == platform)
         if category:
-            query = query.filter(Script.category == category)
+            if category == "__uncategorized__":
+                query = query.filter(
+                    (Script.category.is_(None)) | (Script.category == "")
+                )
+            else:
+                query = query.filter(
+                    (Script.category == category)
+                    | (Script.category.like(f"{category}/%"))
+                )
         if tag:
             query = query.filter(Script.tags.ilike(f"%{tag}%"))
 

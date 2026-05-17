@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (QMainWindow, QTabWidget, QWidget, QVBoxLayout,
                                QToolBar, QMessageBox, QMenuBar, QMenu,
                                QFileDialog, QStyle, QSplitter)
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import (QSyntaxHighlighter, QTextCharFormat, QColor, QFont,
                            QAction, QIcon)
 import re
@@ -33,13 +33,12 @@ class MainWindow(QMainWindow):
         # 设置窗口标题
         self.setWindowTitle("代码管理工具")
         
-        # 从配置恢复窗口状态
+        # 从配置恢复窗口大小与最大化状态
         self.restore_window_state()
 
-        # 窗口居中显示（如果是首次运行）
-        geometry = config_manager.get_window_geometry()
-        if geometry['position']['x'] == -1 or geometry['position']['y'] == -1:
-            self.center_window()
+        # show() 后再居中，frameGeometry 才准确
+        if not config_manager.get_window_geometry()['maximized']:
+            QTimer.singleShot(0, self.center_window)
 
         # 创建菜单栏
         self.create_menu_bar()
@@ -92,13 +91,16 @@ class MainWindow(QMainWindow):
         status_bar.showMessage("就绪")
 
     def center_window(self):
-        """将窗口居中显示"""
+        """将窗口在可用工作区内垂直、水平居中"""
+        if self.isMaximized():
+            return
         from PySide6.QtGui import QGuiApplication
-        screen = QGuiApplication.primaryScreen()
+        screen = self.screen() or QGuiApplication.primaryScreen()
+        if screen is None:
+            return
         screen_geometry = screen.availableGeometry()
         window_geometry = self.frameGeometry()
-        center_point = screen_geometry.center()
-        window_geometry.moveCenter(center_point)
+        window_geometry.moveCenter(screen_geometry.center())
         self.move(window_geometry.topLeft())
 
     def setup_shortcuts(self):
@@ -356,13 +358,9 @@ class MainWindow(QMainWindow):
         """恢复窗口状态"""
         geometry = config_manager.get_window_geometry()
         
-        # 恢复窗口大小
+        # 恢复窗口大小（位置在启动时由 center_window 居中）
         self.resize(geometry['width'], geometry['height'])
-        
-        # 恢复窗口位置
-        if geometry['position']['x'] != -1 and geometry['position']['y'] != -1:
-            self.move(geometry['position']['x'], geometry['position']['y'])
-        
+
         # 恢复最大化状态
         if geometry['maximized']:
             self.showMaximized()
