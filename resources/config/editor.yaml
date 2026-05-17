@@ -1,10 +1,37 @@
-auto_indent: true
-auto_save: true
-auto_save_interval: 30
-bracket_matching: true
-font_family: Consolas
-font_size: 12
-line_numbers: true
-syntax_highlighting: true
-tab_size: 4
-word_wrap: true
+behavior:
+  auto_complete: true
+  auto_indent: true
+  bracket_matching: true
+  highlight_current_line: true
+  show_line_numbers: true
+  tab_size: 4
+  use_spaces: true
+  word_wrap: false
+colors:
+  background: '#282A36'
+  comment: '#6272A4'
+  current_line: '#44475A'
+  keyword: '#FF79C6'
+  line_number: '#6272A4'
+  line_number_bg: '#21222C'
+  number: '#BD93F9'
+  string: '#F1FA8C'
+  text: '#F8F8F2'
+font:
+  bold: false
+  family: Consolas
+  italic: false
+  size: 15
+languages:
+  default: python
+  supported:
+  - python
+  - javascript
+  - java
+  - cpp
+  - html
+  - css
+  - json
+  - xml
+  - sql
+  - bash

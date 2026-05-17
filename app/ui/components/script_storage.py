@@ -4,7 +4,13 @@ from __future__ import annotations
 import json
 from typing import List, Optional
 
-from app.database import Script
+from app.database import Script, ScriptCategory
+
+
+def _normalize_category_path(category: Optional[str]) -> str:
+    if not category:
+        return ""
+    return category.replace("\\", "/").strip("/")
 
 
 class ScriptManager:
@@ -99,6 +105,40 @@ class ScriptManager:
         rows = self.session.query(Script.category).distinct().all()
         cats = sorted({r[0] for r in rows if r[0]})
         return cats
+
+    def get_stored_categories(self) -> List[str]:
+        rows = self.session.query(ScriptCategory.path).order_by(ScriptCategory.path).all()
+        return [_normalize_category_path(r[0]) for r in rows if r[0]]
+
+    def category_exists(self, path: str) -> bool:
+        path = _normalize_category_path(path)
+        if not path:
+            return False
+        if self.session.query(ScriptCategory).filter(ScriptCategory.path == path).first():
+            return True
+        if self.session.query(Script).filter(Script.category == path).first():
+            return True
+        prefix = f"{path}/"
+        if self.session.query(Script).filter(Script.category.like(f"{prefix}%")).first():
+            return True
+        return False
+
+    def add_category(self, path: str) -> bool:
+        path = _normalize_category_path(path)
+        if not path or self.category_exists(path):
+            return False
+        self.session.add(ScriptCategory(path=path))
+        self.session.commit()
+        return True
+
+    def delete_category(self, path: str) -> bool:
+        path = _normalize_category_path(path)
+        row = self.session.query(ScriptCategory).filter(ScriptCategory.path == path).first()
+        if not row:
+            return False
+        self.session.delete(row)
+        self.session.commit()
+        return True
 
     def get_script_types(self) -> List[str]:
         return [r[0] for r in self.session.query(Script.script_type).distinct().all() if r[0]]

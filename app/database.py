@@ -37,6 +37,16 @@ class CodeSnippet(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
+class ScriptCategory(Base):
+    """空分类目录（无脚本时也显示在树中）。"""
+
+    __tablename__ = "script_categories"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    path = Column(String(500), unique=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+
+
 class Script(Base):
     __tablename__ = "scripts"
 

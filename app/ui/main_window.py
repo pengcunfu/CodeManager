@@ -107,14 +107,26 @@ class MainWindow(QMainWindow):
         window_geometry.moveCenter(screen_geometry.center())
         self.move(window_geometry.topLeft())
 
+    def _active_search_input(self):
+        idx = self.tab_widget.currentIndex()
+        if idx == 0 and hasattr(self.snippet_manager, "search_input"):
+            return self.snippet_manager.search_input
+        if idx == 1 and hasattr(self.script_manager, "search_input"):
+            return self.script_manager.search_input
+        return None
+
+    def focus_search(self):
+        search = self._active_search_input()
+        if search:
+            search.setFocus()
+            search.selectAll()
+
     def setup_shortcuts(self):
-        # 搜索快捷键
         search_action = QAction(self)
         search_action.setShortcut("Ctrl+F")
-        search_action.triggered.connect(lambda: self.search_input.setFocus())
+        search_action.triggered.connect(self.focus_search)
         self.addAction(search_action)
 
-        # 清空搜索快捷键
         clear_search_action = QAction(self)
         clear_search_action.setShortcut("Esc")
         clear_search_action.triggered.connect(self.clear_search)
@@ -281,9 +293,16 @@ class MainWindow(QMainWindow):
         dialog.exec_()
 
     def clear_search(self):
-        """清空搜索框并重置列表"""
-        self.search_input.clear()
-        self.load_documents()
+        """清空当前标签页的搜索框并重置列表"""
+        search = self._active_search_input()
+        if not search:
+            return
+        search.clear()
+        idx = self.tab_widget.currentIndex()
+        if idx == 0:
+            self.snippet_manager.on_search()
+        elif idx == 1:
+            self.script_manager.on_search()
 
     def create_menu_bar(self):
         menubar = QMenuBar()

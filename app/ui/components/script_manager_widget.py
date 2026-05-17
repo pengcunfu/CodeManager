@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QMenu,
@@ -48,7 +49,18 @@ def _normalize_category(category: Optional[str]) -> str:
   return category.replace("\\", "/").strip("/")
 
 
-def _build_folder_tree(scripts: List) -> tuple[_FolderNode, List]:
+def _merge_path_into_tree(root: _FolderNode, path: str):
+  parts = [p for p in _normalize_category(path).split("/") if p]
+  node = root
+  for part in parts:
+    if part not in node.children:
+      node.children[part] = _FolderNode(part)
+    node = node.children[part]
+
+
+def _build_folder_tree(
+  scripts: List, extra_paths: Optional[List[str]] = None
+) -> tuple[_FolderNode, List]:
   root = _FolderNode("")
   uncategorized: List = []
   for script in scripts:
@@ -62,6 +74,8 @@ def _build_folder_tree(scripts: List) -> tuple[_FolderNode, List]:
         node.children[part] = _FolderNode(part)
       node = node.children[part]
     node.scripts.append(script)
+  for path in extra_paths or []:
+    _merge_path_into_tree(root, path)
   return root, uncategorized
 
 
@@ -72,8 +86,9 @@ class ScriptTreeItem(QTreeWidgetItem):
     self.is_folder = False
     self.setText(0, script.title)
     self.setToolTip(
+      0,
       f"类型：{script.script_type}\n平台：{script.platform}\n"
-      f"分类：{script.category or '无'}\n描述：{script.description or '无'}"
+      f"分类：{script.category or '无'}\n描述：{script.description or '无'}",
     )
 
 
@@ -84,7 +99,7 @@ class ScriptFolderItem(QTreeWidgetItem):
     self.is_folder = True
     self.folder_path = folder_path
     self.setText(0, name)
-    self.setToolTip(folder_path or UNCATEGORIZED_LABEL)
+    self.setToolTip(0, folder_path or UNCATEGORIZED_LABEL)
     self.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
 
 
@@ -94,6 +109,8 @@ class ScriptManagerWidget(QWidget):
     self.script_manager = ScriptManager(session) if session else None
     self.current_script = None
     self._selected_script_id: Optional[int] = None
+    self._selected_folder_path: Optional[str] = None
+    self._pending_expand_path: Optional[str] = None
     self.init_ui()
     if self.script_manager:
       self.load_scripts()
@@ -189,7 +206,10 @@ class ScriptManagerWidget(QWidget):
   def _rebuild_script_tree(self, scripts: List):
     expanded_paths = self._collect_expanded_folder_paths()
     self.script_tree.clear()
-    root, uncategorized = _build_folder_tree(scripts)
+    extra_paths = (
+      self.script_manager.get_stored_categories() if self.script_manager else []
+    )
+    root, uncategorized = _build_folder_tree(scripts, extra_paths)
     self._populate_tree_node(None, root, "")
 
     if uncategorized:
@@ -198,6 +218,9 @@ class ScriptManagerWidget(QWidget):
       for script in sorted(uncategorized, key=lambda s: s.title.casefold()):
         unc_item.addChild(ScriptTreeItem(script))
 
+    if self._pending_expand_path:
+      expanded_paths.add(self._pending_expand_path)
+      self._pending_expand_path = None
     self._restore_expanded_folder_paths(expanded_paths)
     self.script_tree.expandAll()
     self._restore_script_selection()
@@ -268,6 +291,8 @@ class ScriptManagerWidget(QWidget):
     if isinstance(item, ScriptTreeItem):
       self._select_script(item.script)
     elif isinstance(item, ScriptFolderItem):
+      if item.folder_path != "__uncategorized__":
+        self._selected_folder_path = item.folder_path
       item.setExpanded(not item.isExpanded())
 
   def _select_script(self, script):
@@ -290,6 +315,10 @@ class ScriptManagerWidget(QWidget):
     self.current_script = None
     self._selected_script_id = None
     self.code_editor.new_snippet()
+    if self._selected_folder_path:
+      meta = self.code_editor.get_metadata()
+      meta["category"] = self._selected_folder_path
+      self.code_editor.set_metadata(meta)
 
   def _read_editor(self):
     content = self.code_editor.get_code().strip()
@@ -366,24 +395,68 @@ class ScriptManagerWidget(QWidget):
     except Exception as e:
       QMessageBox.critical(self, "错误", f"删除失败：{e}")
 
-  def _script_item_at(self, pos) -> Optional[ScriptTreeItem]:
-    item = self.script_tree.itemAt(pos)
-    if isinstance(item, ScriptTreeItem):
-      return item
-    return None
+  def _tree_item_at(self, pos) -> Optional[QTreeWidgetItem]:
+    return self.script_tree.itemAt(pos)
+
+  def _prompt_category_name(self, title: str, label: str) -> Optional[str]:
+    name, ok = QInputDialog.getText(self, title, label)
+    if not ok:
+      return None
+    name = name.strip().replace("\\", "/")
+    if not name:
+      QMessageBox.warning(self, "提示", "分类名称不能为空。")
+      return None
+    if "/" in name:
+      QMessageBox.warning(self, "提示", "分类名称不能包含 / 字符。")
+      return None
+    return name
+
+  def add_category(self, parent_path: str = ""):
+    if not self.script_manager:
+      return
+    parent_path = _normalize_category(parent_path)
+    title = "新建子分类" if parent_path else "新建分类"
+    label = (
+      f"在「{parent_path}」下新建子分类："
+      if parent_path
+      else "分类名称："
+    )
+    name = self._prompt_category_name(title, label)
+    if not name:
+      return
+    full_path = f"{parent_path}/{name}" if parent_path else name
+    if self.script_manager.category_exists(full_path):
+      QMessageBox.warning(self, "提示", f"分类「{full_path}」已存在。")
+      return
+    if not self.script_manager.add_category(full_path):
+      QMessageBox.warning(self, "提示", "创建分类失败。")
+      return
+    self._selected_folder_path = full_path
+    self._pending_expand_path = full_path
+    self.load_scripts()
 
   def show_context_menu(self, pos):
-    item = self._script_item_at(pos)
-    if not item:
-      return
+    item = self._tree_item_at(pos)
     menu = QMenu(self)
-    run_action = menu.addAction("执行")
-    delete_action = menu.addAction("删除")
+
+    if isinstance(item, ScriptTreeItem):
+      run_action = menu.addAction("执行")
+      delete_action = menu.addAction("删除")
+      action = menu.exec_(self.script_tree.mapToGlobal(pos))
+      if action == run_action:
+        self.run_script(item.script)
+      elif action == delete_action:
+        self.delete_script(item.script)
+      return
+
+    parent_path = ""
+    if isinstance(item, ScriptFolderItem) and item.folder_path != "__uncategorized__":
+      parent_path = item.folder_path
+
+    new_cat_action = menu.addAction("新建子分类" if parent_path else "新建分类")
     action = menu.exec_(self.script_tree.mapToGlobal(pos))
-    if action == run_action:
-      self.run_script(item.script)
-    elif action == delete_action:
-      self.delete_script(item.script)
+    if action == new_cat_action:
+      self.add_category(parent_path)
 
   def run_current_script(self):
     if self.current_script:
