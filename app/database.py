@@ -72,27 +72,32 @@ def _detect_script_meta(file_path: Path) -> tuple[str, str]:
     return SCRIPT_EXTENSIONS.get(ext, ("text", "cross"))
 
 
-def import_scripts_from_filesystem(session, root: Path | None = None) -> int:
-    """将 data/scripts 下的文件导入数据库（仅当 scripts 表为空时）。"""
-    if session.query(Script).count() > 0:
-        return 0
+def _read_script_file(file_path: Path) -> str:
+    try:
+        return file_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return file_path.read_text(encoding="gbk", errors="replace")
 
+
+def sync_scripts_from_filesystem(session, root: Path | None = None) -> dict[str, int]:
+    """按 source_path 将 data/scripts 同步到 scripts 表（插入/更新）。"""
     root = root or SCRIPTS_IMPORT_DIR
+    stats = {"inserted": 0, "updated": 0, "unchanged": 0}
     if not root.is_dir():
-        return 0
+        return stats
 
-    imported = 0
+    by_path = {
+        row.source_path: row
+        for row in session.query(Script).filter(Script.source_path.isnot(None)).all()
+    }
+
     for file_path in sorted(root.rglob("*")):
         if not file_path.is_file():
             continue
         if file_path.suffix.lower() not in SCRIPT_EXTENSIONS:
             continue
 
-        try:
-            content = file_path.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
-            content = file_path.read_text(encoding="gbk", errors="replace")
-
+        content = _read_script_file(file_path)
         script_type, platform = _detect_script_meta(file_path)
         try:
             category = str(file_path.parent.relative_to(root)).replace("\\", "/")
@@ -102,18 +107,36 @@ def import_scripts_from_filesystem(session, root: Path | None = None) -> int:
             category = ""
 
         rel = file_path.relative_to(PROJECT_ROOT)
-        session.add(
-            Script(
-                title=file_path.stem,
-                content=content,
-                script_type=script_type,
-                platform=platform,
-                category=category,
-                source_path=str(rel).replace("\\", "/"),
-            )
-        )
-        imported += 1
+        source_path = str(rel).replace("\\", "/")
+        title = file_path.stem
+        row = by_path.get(source_path)
 
-    if imported:
-        session.commit()
-    return imported
+        if row is None:
+            session.add(
+                Script(
+                    title=title,
+                    content=content,
+                    script_type=script_type,
+                    platform=platform,
+                    category=category or None,
+                    source_path=source_path,
+                )
+            )
+            stats["inserted"] += 1
+        elif (row.content or "") != content:
+            row.title = title
+            row.content = content
+            row.script_type = script_type
+            row.platform = platform
+            row.category = category or None
+            stats["updated"] += 1
+        else:
+            stats["unchanged"] += 1
+
+    session.commit()
+    return stats
+
+
+def import_scripts_from_filesystem(session, root: Path | None = None) -> int:
+    """应用启动时同步脚本目录（兼容旧调用，返回新增条数）。"""
+    return sync_scripts_from_filesystem(session, root)["inserted"]
