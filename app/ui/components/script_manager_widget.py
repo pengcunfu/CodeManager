@@ -549,9 +549,25 @@ class ScriptManagerWidget(QWidget):
       parent_path = item.folder_path
 
     new_cat_action = menu.addAction("新建子分类" if parent_path else "新建分类")
+    refresh_action = menu.addAction("刷新")
     action = menu.exec_(self.script_tree.mapToGlobal(pos))
     if action == new_cat_action:
       self.add_category(parent_path)
+    elif action == refresh_action:
+      self.refresh_scripts()
+
+  def refresh_scripts(self):
+    """重新加载脚本列表（并同步 data/scripts 目录）。"""
+    if not self.script_manager:
+      return
+    from app.database import SCRIPTS_IMPORT_DIR, sync_scripts_from_filesystem
+
+    if SCRIPTS_IMPORT_DIR.is_dir():
+      try:
+        sync_scripts_from_filesystem(self.script_manager.session, SCRIPTS_IMPORT_DIR)
+      except Exception:
+        pass
+    self.load_scripts()
 
   def run_current_script(self):
     if self.current_script:
